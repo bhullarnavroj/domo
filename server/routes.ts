@@ -351,6 +351,31 @@ export async function registerRoutes(
     res.json(invoices);
   });
 
+  app.get("/api/invoices/:id", isAuthenticated, async (req: any, res) => {
+    const invoiceId = Number(req.params.id);
+    const userId = req.user.claims.sub;
+
+    const invoice = await storage.getInvoice(invoiceId);
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    if (invoice.homeownerId !== userId && invoice.contractorId !== userId) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    const request = await storage.getServiceRequest(invoice.serviceRequestId);
+    const providerProfile = await storage.getProfile(invoice.contractorId);
+    const homeownerProfile = await storage.getProfile(invoice.homeownerId);
+
+    res.json({
+      ...invoice,
+      serviceRequest: request || null,
+      providerProfile: providerProfile || null,
+      homeownerProfile: homeownerProfile || null,
+    });
+  });
+
   // Get invoice by service request (for checking if invoice exists)
   app.get("/api/invoices/by-request/:requestId", isAuthenticated, async (req: any, res) => {
     const requestId = Number(req.params.requestId);

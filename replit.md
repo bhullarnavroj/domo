@@ -13,6 +13,11 @@ Domo is a marketplace platform that connects property owners with service profes
 - 2026-02-18: Auto-invoice creation when customer marks job complete (no manual invoice creation)
 - 2026-02-18: Added earnings/payments dashboard for service providers
 - 2026-02-18: Added in-app messaging system for request communication
+- 2026-02-18: Added invoice detail view with tax breakdown (13% tax display)
+- 2026-02-18: Added PDF download for individual invoices/records (jsPDF + autotable)
+- 2026-02-18: Added Excel export for all invoices/records (xlsx/SheetJS)
+- 2026-02-18: Moved fee tiers to fine print at bottom of invoices page
+- 2026-02-18: Provider sees "Records", homeowner sees "Invoices" terminology
 
 ## Architecture
 - **Frontend**: React + Vite, Tailwind CSS, shadcn/ui components, wouter routing, TanStack Query
