@@ -7,6 +7,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { stripeService } from "./stripeService";
 import { calculateCommission, getCommissionRate } from "@shared/commission";
+import { calculateTax } from "@shared/tax";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -166,13 +167,21 @@ export async function registerRoutes(
           const existingInvoices = await storage.getInvoicesByUser(acceptedQuote.contractorId, "contractor");
           const alreadyInvoiced = existingInvoices.find(inv => inv.serviceRequestId === requestId);
           if (!alreadyInvoiced) {
-            const commissionAmount = calculateCommission(acceptedQuote.amount);
-            const commissionRate = Math.round(getCommissionRate(acceptedQuote.amount) * 100);
+            const baseAmount = acceptedQuote.amount;
+            const commissionAmount = calculateCommission(baseAmount);
+            const commissionRate = Math.round(getCommissionRate(baseAmount) * 100);
+            const province = request.province || "";
+            const tax = calculateTax(baseAmount, province);
+            const totalAmount = baseAmount + tax.totalTaxCents;
             await storage.createInvoice({
               serviceRequestId: requestId,
               contractorId: acceptedQuote.contractorId,
               homeownerId: userId,
-              amount: acceptedQuote.amount,
+              amount: totalAmount,
+              baseAmount,
+              gstAmount: tax.gstCents,
+              pstAmount: tax.pstCents,
+              taxRegion: province,
               commissionAmount,
               commissionRate,
               description: acceptedQuote.description,

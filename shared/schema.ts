@@ -34,7 +34,8 @@ export const serviceRequests = pgTable("service_requests", {
   description: text("description").notNull(),
   category: text("category").notNull(), // e.g., plumbing, electrical, landscaping
   location: text("location").notNull(),
-  photos: text("photos").array(), // Array of object storage paths
+  province: text("province"),
+  photos: text("photos").array(),
   status: text("status", { enum: ["open", "in_progress", "completed", "cancelled"] }).default("open").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -54,9 +55,13 @@ export const invoices = pgTable("invoices", {
   serviceRequestId: integer("service_request_id").notNull().references(() => serviceRequests.id),
   contractorId: text("contractor_id").notNull().references(() => authUsers.id),
   homeownerId: text("homeowner_id").notNull().references(() => authUsers.id),
-  amount: integer("amount").notNull(), // In cents
-  commissionAmount: integer("commission_amount").notNull(), // Tiered % of amount
-  commissionRate: integer("commission_rate"), // Rate in whole percent (8, 10, 12, 15)
+  amount: integer("amount").notNull(),
+  baseAmount: integer("base_amount"),
+  gstAmount: integer("gst_amount").default(0),
+  pstAmount: integer("pst_amount").default(0),
+  taxRegion: text("tax_region"),
+  commissionAmount: integer("commission_amount").notNull(),
+  commissionRate: integer("commission_rate"),
   description: text("description"),
   status: text("status", { enum: ["pending", "paid"] }).default("pending").notNull(),
   stripePaymentIntentId: text("stripe_payment_intent_id"),

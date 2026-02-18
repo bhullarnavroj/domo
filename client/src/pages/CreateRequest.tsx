@@ -13,6 +13,7 @@ import { Loader2, UploadCloud } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { PROVINCE_LIST } from "@shared/tax";
 
 const categories = [
   { group: "Home & Repair", items: ["Plumbing", "Electrical", "Carpentry", "Painting", "HVAC", "Roofing", "General Repair"] },
@@ -36,6 +37,7 @@ export default function CreateRequest() {
       description: "",
       category: "",
       location: "",
+      province: "",
       photos: [],
     },
   });
@@ -114,13 +116,36 @@ export default function CreateRequest() {
                     <FormItem>
                       <FormLabel>Location</FormLabel>
                       <FormControl>
-                        <Input placeholder="City, Zip Code" {...field} data-testid="input-location" />
+                        <Input placeholder="City, Neighbourhood" {...field} data-testid="input-location" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
+
+              <FormField
+                control={form.control}
+                name="province"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Province / Territory</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-province">
+                          <SelectValue placeholder="Select province" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {PROVINCE_LIST.map((p) => (
+                          <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}

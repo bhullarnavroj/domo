@@ -30,17 +30,10 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { useProfile } from "@/hooks/use-profiles";
 import { useToast } from "@/hooks/use-toast";
 import { COMMISSION_TIERS } from "@shared/commission";
-
-const TAX_RATE = 0.13;
+import { formatTaxBreakdown, getTaxLabel, PROVINCES } from "@shared/tax";
 
 function formatCurrency(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
-}
-
-function computeTaxBreakdown(amountCents: number) {
-  const subtotalCents = Math.round(amountCents / (1 + TAX_RATE));
-  const taxCents = amountCents - subtotalCents;
-  return { subtotalCents, taxCents };
 }
 
 function EarningsSummary() {
@@ -136,7 +129,12 @@ function InvoiceDetailDialog({
       .catch(() => setLoading(false));
   }, [open, invoice.id]);
 
-  const { subtotalCents, taxCents } = computeTaxBreakdown(invoice.amount);
+  const baseAmount = invoice.baseAmount || invoice.amount;
+  const gstAmount = invoice.gstAmount || 0;
+  const pstAmount = invoice.pstAmount || 0;
+  const taxRegion = invoice.taxRegion || "";
+  const taxLines = formatTaxBreakdown(gstAmount, pstAmount, taxRegion);
+  const provinceName = taxRegion && PROVINCES[taxRegion] ? PROVINCES[taxRegion].label : "";
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -189,6 +187,12 @@ function InvoiceDetailDialog({
                   <div data-testid="text-invoice-provider">{detail.providerProfile.businessName || "Service Provider"}</div>
                 </div>
               )}
+              {provinceName && (
+                <div>
+                  <div className="text-muted-foreground mb-1">Tax Region</div>
+                  <div data-testid="text-invoice-region">{provinceName}</div>
+                </div>
+              )}
             </div>
 
             {detail?.serviceRequest && (
@@ -209,12 +213,20 @@ function InvoiceDetailDialog({
             <div className="space-y-2" data-testid="section-invoice-breakdown">
               <div className="flex justify-between text-sm">
                 <span>Subtotal</span>
-                <span data-testid="text-invoice-subtotal">{formatCurrency(subtotalCents)}</span>
+                <span data-testid="text-invoice-subtotal">{formatCurrency(baseAmount)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span>Tax ({Math.round(TAX_RATE * 100)}%)</span>
-                <span data-testid="text-invoice-tax">{formatCurrency(taxCents)}</span>
-              </div>
+              {taxLines.map((line, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span>{line.label}</span>
+                  <span data-testid={`text-invoice-tax-${i}`}>{formatCurrency(line.amount)}</span>
+                </div>
+              ))}
+              {taxLines.length === 0 && (gstAmount + pstAmount) === 0 && (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Tax</span>
+                  <span>$0.00</span>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between font-semibold">
                 <span>Total</span>
@@ -329,12 +341,19 @@ async function downloadInvoicePdf(invoice: any, detail: any, isProvider: boolean
     doc.setTextColor(0);
   }
 
-  const { subtotalCents, taxCents } = computeTaxBreakdown(invoice.amount);
+  const pdfBase = invoice.baseAmount || invoice.amount;
+  const pdfGst = invoice.gstAmount || 0;
+  const pdfPst = invoice.pstAmount || 0;
+  const pdfRegion = invoice.taxRegion || "";
+  const pdfTaxLines = formatTaxBreakdown(pdfGst, pdfPst, pdfRegion);
 
   const tableBody: any[][] = [
-    ["Service", detail?.serviceRequest?.title || "Service", formatCurrency(subtotalCents)],
-    [`Tax (${Math.round(TAX_RATE * 100)}%)`, "", formatCurrency(taxCents)],
+    ["Service", detail?.serviceRequest?.title || "Service", formatCurrency(pdfBase)],
+    ...pdfTaxLines.map(line => [line.label, "", formatCurrency(line.amount)]),
   ];
+  if (pdfTaxLines.length === 0) {
+    tableBody.push(["Tax", "", "$0.00"]);
+  }
 
   autoTable(doc, {
     startY: y,
@@ -377,13 +396,18 @@ async function downloadInvoicePdf(invoice: any, detail: any, isProvider: boolean
 function exportToExcel(invoiceList: any[], isProvider: boolean) {
   import("xlsx").then(({ utils, writeFile }) => {
     const rows = invoiceList.map((inv: any) => {
-      const { subtotalCents, taxCents } = computeTaxBreakdown(inv.amount);
+      const xlBase = inv.baseAmount || inv.amount;
+      const xlGst = inv.gstAmount || 0;
+      const xlPst = inv.pstAmount || 0;
+      const xlRegion = inv.taxRegion || "";
       const base: any = {
         "ID": inv.id,
         "Date": inv.createdAt ? format(new Date(inv.createdAt), "yyyy-MM-dd") : "",
         "Description": inv.description || "",
-        "Subtotal": (subtotalCents / 100).toFixed(2),
-        [`Tax (${Math.round(TAX_RATE * 100)}%)`]: (taxCents / 100).toFixed(2),
+        "Province": xlRegion ? (PROVINCES[xlRegion]?.label || xlRegion) : "",
+        "Subtotal": (xlBase / 100).toFixed(2),
+        "GST": (xlGst / 100).toFixed(2),
+        "PST/HST": (xlPst / 100).toFixed(2),
         "Total": (inv.amount / 100).toFixed(2),
         "Status": inv.status,
       };
@@ -458,7 +482,9 @@ export default function Invoices() {
 
         <div className="space-y-4">
           {invoices?.map((invoice: any) => {
-            const { subtotalCents, taxCents } = computeTaxBreakdown(invoice.amount);
+            const invBase = invoice.baseAmount || invoice.amount;
+            const invTax = (invoice.gstAmount || 0) + (invoice.pstAmount || 0);
+            const invTaxLabel = invoice.taxRegion ? getTaxLabel(invoice.taxRegion) : "Tax";
             return (
               <Card key={invoice.id} className="border-border/60" data-testid={`card-invoice-${invoice.id}`}>
                 <CardContent className="p-6">
@@ -483,12 +509,12 @@ export default function Invoices() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4">
-                      {isHomeowner && (
+                      {isHomeowner && invTax > 0 && (
                         <div className="text-right">
                           <div className="text-xs text-muted-foreground">Subtotal</div>
-                          <div className="text-sm">{formatCurrency(subtotalCents)}</div>
+                          <div className="text-sm">{formatCurrency(invBase)}</div>
                           <div className="text-xs text-muted-foreground mt-0.5">
-                            + {formatCurrency(taxCents)} tax
+                            + {formatCurrency(invTax)} {invTaxLabel}
                           </div>
                         </div>
                       )}
