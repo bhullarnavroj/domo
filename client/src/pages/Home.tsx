@@ -32,7 +32,7 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10"
           >
-            One platform, every property professional. Post what you need and 
+            One platform, every professional you need. Post what you need and 
             get competitive quotes from trusted experts — fast, simple, done.
           </motion.p>
           
