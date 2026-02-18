@@ -6,9 +6,19 @@ import { Navigation } from "@/components/Navigation";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, MapPin, Calendar, DollarSign, CheckCircle } from "lucide-react";
+import { Loader2, MapPin, Calendar, DollarSign, CheckCircle, Pencil } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { useState } from "react";
+
+const categories = [
+  { group: "Home & Repair", items: ["Plumbing", "Electrical", "Carpentry", "Painting", "HVAC", "Roofing", "General Repair"] },
+  { group: "Property Services", items: ["Landscaping", "Cleaning", "Pest Control", "Moving", "Interior Design"] },
+  { group: "Legal & Financial", items: ["Real Estate Law", "Property Law", "Notary", "Tax Services", "Insurance"] },
+  { group: "Real Estate", items: ["Real Estate Agent", "Property Manager", "Home Inspector", "Appraiser"] },
+  { group: "Creative & Media", items: ["Photography", "Videography", "Virtual Tour"] },
+  { group: "Other", items: ["Other"] },
+];
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -30,6 +40,11 @@ export default function RequestDetails() {
   const [quoteAmount, setQuoteAmount] = useState("");
   const [quoteDesc, setQuoteDesc] = useState("");
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editCategory, setEditCategory] = useState("");
+  const [editLocation, setEditLocation] = useState("");
 
   if (isLoading || quotesLoading) {
     return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
@@ -67,6 +82,31 @@ export default function RequestDetails() {
     });
   };
 
+  const openEditDialog = () => {
+    if (!request) return;
+    setEditTitle(request.title);
+    setEditDescription(request.description);
+    setEditCategory(request.category);
+    setEditLocation(request.location);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateRequest({
+      id: requestId,
+      title: editTitle,
+      description: editDescription,
+      category: editCategory,
+      location: editLocation,
+    }, {
+      onSuccess: () => {
+        setEditDialogOpen(false);
+        toast({ title: "Request updated!", description: "Your changes have been saved." });
+      },
+    });
+  };
+
   return (
     <div className="min-h-screen bg-muted/30">
       <Navigation />
@@ -81,7 +121,14 @@ export default function RequestDetails() {
                     <div className="text-sm font-semibold text-primary uppercase tracking-wider mb-1" data-testid="text-category">{request.category}</div>
                     <h1 className="text-2xl font-bold font-display" data-testid="text-request-title">{request.title}</h1>
                   </div>
-                  <StatusBadge status={request.status} />
+                  <div className="flex items-center gap-2">
+                    {isOwner && request.status === "open" && (
+                      <Button variant="outline" size="icon" onClick={openEditDialog} data-testid="button-edit-request">
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <StatusBadge status={request.status} />
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -170,6 +217,72 @@ export default function RequestDetails() {
           </div>
 
           <div className="space-y-6">
+             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+               <DialogContent className="max-w-lg">
+                 <DialogHeader>
+                   <DialogTitle>Edit Service Request</DialogTitle>
+                 </DialogHeader>
+                 <form onSubmit={handleEditRequest} className="space-y-4 mt-2">
+                   <div>
+                     <Label>Title</Label>
+                     <Input 
+                       value={editTitle} 
+                       onChange={(e) => setEditTitle(e.target.value)} 
+                       required 
+                       data-testid="input-edit-title"
+                     />
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                     <div>
+                       <Label>Category</Label>
+                       <Select value={editCategory} onValueChange={setEditCategory}>
+                         <SelectTrigger data-testid="select-edit-category">
+                           <SelectValue placeholder="Select a category" />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {categories.map((group) => (
+                             <div key={group.group}>
+                               <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.group}</div>
+                               {group.items.map((cat) => (
+                                 <SelectItem key={cat} value={cat.toLowerCase()}>{cat}</SelectItem>
+                               ))}
+                             </div>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                     </div>
+                     <div>
+                       <Label>Location</Label>
+                       <Input 
+                         value={editLocation} 
+                         onChange={(e) => setEditLocation(e.target.value)} 
+                         required 
+                         data-testid="input-edit-location"
+                       />
+                     </div>
+                   </div>
+                   <div>
+                     <Label>Description</Label>
+                     <Textarea 
+                       value={editDescription} 
+                       onChange={(e) => setEditDescription(e.target.value)} 
+                       className="min-h-[120px]"
+                       required 
+                       data-testid="input-edit-description"
+                     />
+                   </div>
+                   <div className="flex gap-3 pt-2">
+                     <Button type="button" variant="outline" className="w-full" onClick={() => setEditDialogOpen(false)} data-testid="button-edit-cancel">
+                       Cancel
+                     </Button>
+                     <Button type="submit" className="w-full" disabled={isUpdatingRequest} data-testid="button-edit-save">
+                       {isUpdatingRequest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Changes"}
+                     </Button>
+                   </div>
+                 </form>
+               </DialogContent>
+             </Dialog>
+
              {isProvider && request.status === "open" && (
                <Card className="border-border/60 bg-primary/5">
                  <CardHeader>
