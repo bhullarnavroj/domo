@@ -32,8 +32,8 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10"
           >
-            From plumbers to lawyers, photographers to property managers — connect 
-            with vetted professionals for every property need in minutes.
+            One platform, every property professional. Post what you need and 
+            get competitive quotes from trusted experts — fast, simple, done.
           </motion.p>
           
           <motion.div 
