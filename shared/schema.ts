@@ -61,12 +61,23 @@ export const invoices = pgTable("invoices", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull().references(() => serviceRequests.id),
+  senderId: text("sender_id").notNull().references(() => authUsers.id),
+  senderName: text("sender_name").notNull(),
+  senderRole: text("sender_role", { enum: ["homeowner", "contractor"] }).notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // === SCHEMAS ===
 
 export const insertProfileSchema = createInsertSchema(profiles).omit({ id: true, createdAt: true, userId: true });
 export const insertServiceRequestSchema = createInsertSchema(serviceRequests).omit({ id: true, createdAt: true, homeownerId: true, status: true });
 export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, createdAt: true, contractorId: true, status: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, status: true });
+export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true, senderId: true, senderName: true, senderRole: true, serviceRequestId: true });
 
 // === TYPES ===
 
@@ -80,6 +91,9 @@ export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
 
 export type Invoice = typeof invoices.$inferSelect;
+
+export type Message = typeof messages.$inferSelect;
+export type InsertMessage = z.infer<typeof insertMessageSchema>;
 
 // Request Types
 export type CreateProfileRequest = InsertProfile;

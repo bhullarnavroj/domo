@@ -1,10 +1,11 @@
 import { 
-  users, profiles, serviceRequests, quotes, invoices,
+  users, profiles, serviceRequests, quotes, invoices, messages,
   type User, type InsertUser,
   type Profile, type InsertProfile, type UpdateProfileRequest,
   type ServiceRequest, type InsertServiceRequest, type UpdateServiceRequestRequest,
   type Quote, type InsertQuote, type UpdateQuoteRequest,
   type Invoice,
+  type Message,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -31,6 +32,10 @@ export interface IStorage {
   createQuote(quote: InsertQuote): Promise<Quote>;
   updateQuote(id: number, quote: UpdateQuoteRequest): Promise<Quote>;
   
+  // Messages
+  getMessagesByRequest(requestId: number): Promise<Message[]>;
+  createMessage(message: Omit<Message, "id" | "createdAt">): Promise<Message>;
+
   // Invoices
   getInvoice(id: number): Promise<Invoice | undefined>;
   getInvoicesByUser(userId: string, role: "homeowner" | "contractor"): Promise<Invoice[]>;
@@ -134,6 +139,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(quotes.id, id))
       .returning();
     return updated;
+  }
+
+  // Message Operations
+  async getMessagesByRequest(requestId: number): Promise<Message[]> {
+    return await db.select().from(messages)
+      .where(eq(messages.serviceRequestId, requestId))
+      .orderBy(messages.createdAt);
+  }
+
+  async createMessage(message: Omit<Message, "id" | "createdAt">): Promise<Message> {
+    const [newMessage] = await db.insert(messages).values(message).returning();
+    return newMessage;
   }
 
   // Invoice Operations

@@ -1,12 +1,14 @@
 import { useParams } from "wouter";
 import { useServiceRequest, useUpdateServiceRequest } from "@/hooks/use-service-requests";
 import { useQuotes, useCreateQuote, useAcceptQuote } from "@/hooks/use-quotes";
+import { useMessages, useCreateMessage } from "@/hooks/use-messages";
+import { useAuth } from "@/hooks/use-auth";
 import { useProfile } from "@/hooks/use-profiles";
 import { Navigation } from "@/components/Navigation";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, MapPin, Calendar, DollarSign, CheckCircle, Pencil } from "lucide-react";
+import { Loader2, MapPin, Calendar, DollarSign, CheckCircle, Pencil, MessageCircle, Send } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -35,11 +37,15 @@ export default function RequestDetails() {
   const { mutate: createQuote, isPending: isCreatingQuote } = useCreateQuote();
   const { mutate: acceptQuote, isPending: isAcceptingQuote } = useAcceptQuote();
   const { mutate: updateRequest, isPending: isUpdatingRequest } = useUpdateServiceRequest();
+  const { data: messagesList } = useMessages(requestId);
+  const { mutate: sendMessage, isPending: isSending } = useCreateMessage(requestId);
+  const { user } = useAuth();
   
   const { toast } = useToast();
   const [quoteAmount, setQuoteAmount] = useState("");
   const [quoteDesc, setQuoteDesc] = useState("");
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [messageText, setMessageText] = useState("");
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -106,6 +112,16 @@ export default function RequestDetails() {
       },
     });
   };
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!messageText.trim()) return;
+    sendMessage(messageText.trim(), {
+      onSuccess: () => setMessageText(""),
+    });
+  };
+
+  const canMessage = isOwner || (isProvider && quotes?.some(q => q.contractorId === profile?.userId));
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -332,6 +348,63 @@ export default function RequestDetails() {
                        </form>
                      </DialogContent>
                    </Dialog>
+                 </CardContent>
+               </Card>
+             )}
+
+             {canMessage && (
+               <Card className="border-border/60" data-testid="card-messages">
+                 <CardHeader className="pb-3">
+                   <CardTitle className="text-lg flex items-center gap-2">
+                     <MessageCircle className="w-5 h-5" /> Messages
+                   </CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                   <div className="space-y-3 max-h-80 overflow-y-auto mb-4" data-testid="messages-list">
+                     {messagesList && messagesList.length > 0 ? (
+                       messagesList.map((msg: any) => {
+                         const isMe = msg.senderId === user?.id;
+                         return (
+                           <div 
+                             key={msg.id} 
+                             className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                             data-testid={`message-${msg.id}`}
+                           >
+                             <div className="text-xs text-muted-foreground mb-1">
+                               {isMe ? "You" : msg.senderName}
+                               {" \u00b7 "}
+                               {msg.senderRole === "homeowner" ? "Owner" : "Provider"}
+                             </div>
+                             <div className={`px-3 py-2 rounded-md text-sm max-w-[85%] ${
+                               isMe 
+                                 ? "bg-primary text-primary-foreground" 
+                                 : "bg-muted"
+                             }`}>
+                               {msg.body}
+                             </div>
+                             <div className="text-[10px] text-muted-foreground mt-1">
+                               {format(new Date(msg.createdAt), "MMM d, h:mm a")}
+                             </div>
+                           </div>
+                         );
+                       })
+                     ) : (
+                       <div className="text-center py-6 text-muted-foreground text-sm" data-testid="text-no-messages">
+                         No messages yet. Start a conversation.
+                       </div>
+                     )}
+                   </div>
+                   <form onSubmit={handleSendMessage} className="flex gap-2">
+                     <Input
+                       value={messageText}
+                       onChange={(e) => setMessageText(e.target.value)}
+                       placeholder="Type a message..."
+                       data-testid="input-message"
+                     />
+                     <Button type="submit" size="icon" disabled={isSending || !messageText.trim()} data-testid="button-send-message">
+                       {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                     </Button>
+                   </form>
                  </CardContent>
                </Card>
              )}

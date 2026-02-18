@@ -3,10 +3,12 @@ import {
   insertProfileSchema, 
   insertServiceRequestSchema, 
   insertQuoteSchema,
+  insertMessageSchema,
   profiles,
   serviceRequests,
   quotes,
-  invoices
+  invoices,
+  messages
 } from './schema';
 
 // ============================================
@@ -134,6 +136,25 @@ export const api = {
         404: errorSchemas.notFound,
       },
     }
+  },
+  messages: {
+    listByRequest: {
+      method: 'GET' as const,
+      path: '/api/service-requests/:requestId/messages' as const,
+      responses: {
+        200: z.array(z.custom<typeof messages.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/service-requests/:requestId/messages' as const,
+      input: insertMessageSchema,
+      responses: {
+        201: z.custom<typeof messages.$inferSelect>(),
+        400: errorSchemas.validation,
+        403: errorSchemas.unauthorized,
+      },
+    },
   },
   invoices: {
     list: {

@@ -257,6 +257,78 @@ export async function registerRoutes(
     res.json(acceptedQuote);
   });
 
+  // === MESSAGES ===
+
+  app.get(api.messages.listByRequest.path, isAuthenticated, async (req: any, res) => {
+    const requestId = Number(req.params.requestId);
+    const userId = req.user.claims.sub;
+
+    const request = await storage.getServiceRequest(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Service request not found" });
+    }
+
+    const quotesForRequest = await storage.getQuotesByRequest(requestId);
+    const isHomeowner = request.homeownerId === userId;
+    const hasQuoted = quotesForRequest.some(q => q.contractorId === userId);
+
+    if (!isHomeowner && !hasQuoted) {
+      return res.status(403).json({ message: "You must be the request owner or have submitted a quote to view messages" });
+    }
+
+    const messagesList = await storage.getMessagesByRequest(requestId);
+    res.json(messagesList);
+  });
+
+  app.post(api.messages.create.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const requestId = Number(req.params.requestId);
+      const userId = req.user.claims.sub;
+      const input = api.messages.create.input.parse(req.body);
+
+      const request = await storage.getServiceRequest(requestId);
+      if (!request) {
+        return res.status(404).json({ message: "Service request not found" });
+      }
+
+      const quotesForRequest = await storage.getQuotesByRequest(requestId);
+      const isHomeowner = request.homeownerId === userId;
+      const hasQuoted = quotesForRequest.some(q => q.contractorId === userId);
+
+      if (!isHomeowner && !hasQuoted) {
+        return res.status(403).json({ message: "You must be the request owner or have submitted a quote to send messages" });
+      }
+
+      const profile = await storage.getProfile(userId);
+      if (!profile) {
+        return res.status(404).json({ message: "Profile not found" });
+      }
+
+      const user = await storage.getUser(userId);
+      const senderName = profile.role === "contractor" 
+        ? (profile.businessName || user?.firstName || "Service Provider")
+        : (user?.firstName || "Property Owner");
+
+      const message = await storage.createMessage({
+        serviceRequestId: requestId,
+        senderId: userId,
+        senderName,
+        senderRole: profile.role as "homeowner" | "contractor",
+        body: input.body,
+      });
+
+      res.status(201).json(message);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      throw err;
+    }
+  });
+
   // === INVOICES & PAYMENTS ===
 
   app.get(api.invoices.list.path, isAuthenticated, async (req: any, res) => {
