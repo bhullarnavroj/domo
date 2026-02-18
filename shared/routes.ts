@@ -164,11 +164,39 @@ export const api = {
         200: z.array(z.custom<typeof invoices.$inferSelect>()),
       },
     },
+    create: {
+      method: 'POST' as const,
+      path: '/api/invoices' as const,
+      input: z.object({
+        serviceRequestId: z.number(),
+        amount: z.number().min(1),
+        description: z.string().min(1),
+      }),
+      responses: {
+        201: z.custom<typeof invoices.$inferSelect>(),
+        400: errorSchemas.validation,
+        403: errorSchemas.unauthorized,
+      },
+    },
+    earnings: {
+      method: 'GET' as const,
+      path: '/api/earnings' as const,
+      responses: {
+        200: z.object({
+          totalEarnings: z.number(),
+          totalCommission: z.number(),
+          netEarnings: z.number(),
+          invoiceCount: z.number(),
+          paidCount: z.number(),
+          pendingCount: z.number(),
+        }),
+      },
+    },
     payCommission: {
       method: 'POST' as const,
       path: '/api/invoices/:id/pay-commission' as const,
       responses: {
-        200: z.object({ url: z.string() }), // Stripe checkout URL
+        200: z.object({ url: z.string() }),
         404: errorSchemas.notFound,
       },
     }

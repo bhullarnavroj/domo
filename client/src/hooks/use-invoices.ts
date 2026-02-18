@@ -1,19 +1,51 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl } from "@shared/routes";
 
-// List invoices for current user
 export function useInvoices() {
   return useQuery({
     queryKey: [api.invoices.list.path],
     queryFn: async () => {
       const res = await fetch(api.invoices.list.path, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch invoices");
-      return api.invoices.list.responses[200].parse(await res.json());
+      return res.json();
     },
   });
 }
 
-// Pay commission for an invoice
+export function useEarnings() {
+  return useQuery({
+    queryKey: [api.invoices.earnings.path],
+    queryFn: async () => {
+      const res = await fetch(api.invoices.earnings.path, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch earnings");
+      return res.json();
+    },
+  });
+}
+
+export function useCreateInvoice() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { serviceRequestId: number; amount: number; description: string }) => {
+      const res = await fetch(api.invoices.create.path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to create invoice");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.invoices.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.invoices.earnings.path] });
+    },
+  });
+}
+
 export function usePayCommission() {
   return useMutation({
     mutationFn: async (invoiceId: number) => {
@@ -23,7 +55,7 @@ export function usePayCommission() {
         credentials: "include",
       });
       if (!res.ok) throw new Error("Failed to initiate payment");
-      return api.invoices.payCommission.responses[200].parse(await res.json());
+      return res.json();
     },
   });
 }

@@ -39,7 +39,7 @@ export interface IStorage {
   // Invoices
   getInvoice(id: number): Promise<Invoice | undefined>;
   getInvoicesByUser(userId: string, role: "homeowner" | "contractor"): Promise<Invoice[]>;
-  createInvoice(invoice: Omit<Invoice, "id" | "createdAt" | "status">): Promise<Invoice>;
+  createInvoice(invoice: Omit<Invoice, "id" | "createdAt" | "status" | "commissionRate" | "description"> & { commissionRate?: number | null; description?: string | null }): Promise<Invoice>;
   updateInvoiceStatus(id: number, status: "pending" | "paid", stripePaymentIntentId?: string): Promise<Invoice>;
 }
 
@@ -167,7 +167,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async createInvoice(invoice: Omit<Invoice, "id" | "createdAt" | "status">): Promise<Invoice> {
+  async createInvoice(invoice: Omit<Invoice, "id" | "createdAt" | "status" | "commissionRate" | "description"> & { commissionRate?: number | null; description?: string | null }): Promise<Invoice> {
     const [newInvoice] = await db.insert(invoices).values(invoice).returning();
     return newInvoice;
   }

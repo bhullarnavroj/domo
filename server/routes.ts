@@ -6,6 +6,7 @@ import { z } from "zod";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { stripeService } from "./stripeService";
+import { calculateCommission, getCommissionRate } from "@shared/commission";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -244,13 +245,16 @@ export async function registerRoutes(
     await storage.updateServiceRequest(request.id, { status: "in_progress" });
 
     // 4. Create invoice immediately (pending status)
-    const commissionAmount = Math.round(quote.amount * 0.10); // 10% commission
+    const commissionAmount = calculateCommission(quote.amount);
+    const commissionRate = Math.round(getCommissionRate(quote.amount) * 100);
     await storage.createInvoice({
       serviceRequestId: request.id,
       contractorId: quote.contractorId,
       homeownerId: userId,
       amount: quote.amount,
-      commissionAmount: commissionAmount,
+      commissionAmount,
+      commissionRate,
+      description: quote.description,
       stripePaymentIntentId: null,
     });
 
@@ -339,6 +343,91 @@ export async function registerRoutes(
 
     const invoices = await storage.getInvoicesByUser(userId, profile.role as "homeowner" | "contractor");
     res.json(invoices);
+  });
+
+  // Provider creates an invoice for a job
+  app.post(api.invoices.create.path, isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const input = api.invoices.create.input.parse(req.body);
+
+      const profile = await storage.getProfile(userId);
+      if (!profile || profile.role !== "contractor") {
+        return res.status(403).json({ message: "Only service providers can create invoices" });
+      }
+
+      const request = await storage.getServiceRequest(input.serviceRequestId);
+      if (!request) {
+        return res.status(404).json({ message: "Service request not found" });
+      }
+
+      if (request.status !== "in_progress" && request.status !== "completed") {
+        return res.status(400).json({ message: "Service request must be in progress or completed to invoice" });
+      }
+
+      const quotesForRequest = await storage.getQuotesByRequest(input.serviceRequestId);
+      const acceptedQuote = quotesForRequest.find(
+        q => q.contractorId === userId && q.status === "accepted"
+      );
+      if (!acceptedQuote) {
+        return res.status(403).json({ message: "You must have an accepted quote for this request" });
+      }
+
+      // Check no existing invoice for this request by this contractor
+      const existingInvoices = await storage.getInvoicesByUser(userId, "contractor");
+      const alreadyInvoiced = existingInvoices.find(inv => inv.serviceRequestId === input.serviceRequestId);
+      if (alreadyInvoiced) {
+        return res.status(400).json({ message: "An invoice already exists for this request" });
+      }
+
+      const commissionAmount = calculateCommission(input.amount);
+      const commissionRate = Math.round(getCommissionRate(input.amount) * 100);
+
+      const invoice = await storage.createInvoice({
+        serviceRequestId: input.serviceRequestId,
+        contractorId: userId,
+        homeownerId: request.homeownerId,
+        amount: input.amount,
+        commissionAmount,
+        commissionRate,
+        description: input.description,
+        stripePaymentIntentId: null,
+      });
+
+      res.status(201).json(invoice);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      throw err;
+    }
+  });
+
+  // Earnings summary for service providers
+  app.get(api.invoices.earnings.path, isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const profile = await storage.getProfile(userId);
+    if (!profile) return res.status(404).json({ message: "Profile not found" });
+
+    const userInvoices = await storage.getInvoicesByUser(userId, profile.role as "homeowner" | "contractor");
+
+    const totalEarnings = userInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+    const totalCommission = userInvoices.reduce((sum, inv) => sum + inv.commissionAmount, 0);
+    const netEarnings = totalEarnings - totalCommission;
+    const paidCount = userInvoices.filter(inv => inv.status === "paid").length;
+    const pendingCount = userInvoices.filter(inv => inv.status === "pending").length;
+
+    res.json({
+      totalEarnings,
+      totalCommission,
+      netEarnings,
+      invoiceCount: userInvoices.length,
+      paidCount,
+      pendingCount,
+    });
   });
 
   app.post(api.invoices.payCommission.path, isAuthenticated, async (req: any, res) => {

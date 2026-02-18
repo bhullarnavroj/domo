@@ -1,20 +1,23 @@
 # Domo - Property Services Marketplace
 
 ## Overview
-Domo is a marketplace platform that connects property owners with service professionals across multiple categories (plumbing, electrical, legal, real estate, photography, property management, and more). Property owners post service requests with photos, professionals submit quotes, owners accept quotes, and upon completion, professionals pay a 10% commission via Stripe.
+Domo is a marketplace platform that connects property owners with service professionals across multiple categories (plumbing, electrical, legal, real estate, photography, property management, and more). Property owners post service requests with photos, professionals submit quotes, owners accept quotes, and upon completion, professionals pay a tiered commission via Stripe.
 
 ## Recent Changes
 - 2026-02-18: Rebranded from "FixItPro" to "Domo"
 - 2026-02-18: Expanded service categories to 25+ professional categories (Legal, Real Estate, Photography, Property Management, etc.)
 - 2026-02-18: Updated terminology from "contractor" to "service provider/professional" throughout UI
 - 2026-02-18: Fixed authentication bug (setupAuth not being called before routes)
+- 2026-02-18: Implemented tiered commission fees (15% <$500, 12% $500-$2K, 10% $2K-$10K, 8% >$10K)
+- 2026-02-18: Added provider invoice creation and earnings/payments dashboard
+- 2026-02-18: Added in-app messaging system for request communication
 
 ## Architecture
 - **Frontend**: React + Vite, Tailwind CSS, shadcn/ui components, wouter routing, TanStack Query
 - **Backend**: Express.js with TypeScript
 - **Database**: PostgreSQL via Drizzle ORM
 - **Auth**: Replit Auth (OIDC via passport)
-- **Payments**: Stripe (10% commission checkout)
+- **Payments**: Stripe (tiered commission: 15%/12%/10%/8%)
 - **Storage**: Replit Object Storage for photo uploads
 
 ## Key Files
@@ -22,6 +25,7 @@ Domo is a marketplace platform that connects property owners with service profes
 - `shared/routes.ts` - API route definitions
 - `server/routes.ts` - Express route handlers
 - `server/storage.ts` - Database CRUD operations (IStorage interface)
+- `shared/commission.ts` - Tiered commission fee calculation
 - `server/stripeService.ts` - Stripe integration
 - `client/src/pages/Home.tsx` - Landing page
 - `client/src/pages/Dashboard.tsx` - User dashboard (homeowner/provider views)

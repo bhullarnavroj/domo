@@ -55,7 +55,9 @@ export const invoices = pgTable("invoices", {
   contractorId: text("contractor_id").notNull().references(() => authUsers.id),
   homeownerId: text("homeowner_id").notNull().references(() => authUsers.id),
   amount: integer("amount").notNull(), // In cents
-  commissionAmount: integer("commission_amount").notNull(), // 10% of amount
+  commissionAmount: integer("commission_amount").notNull(), // Tiered % of amount
+  commissionRate: integer("commission_rate"), // Rate in whole percent (8, 10, 12, 15)
+  description: text("description"),
   status: text("status", { enum: ["pending", "paid"] }).default("pending").notNull(),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   createdAt: timestamp("created_at").defaultNow(),
