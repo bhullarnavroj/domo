@@ -258,6 +258,10 @@ function InvoiceDetailDialog({
                 <Download className="w-4 h-4 mr-2" /> Download PDF
               </Button>
             </div>
+
+            <div className="text-[10px] text-muted-foreground text-center pt-2" data-testid="text-dialog-fee-tiers">
+              DOMO Service Fee Tiers: {COMMISSION_TIERS.map(t => `${Math.round(t.rate * 100)}% ${t.label}`).join(" \u00B7 ")}
+            </div>
           </div>
         )}
       </DialogContent>
