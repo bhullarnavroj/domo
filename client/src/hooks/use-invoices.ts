@@ -23,39 +23,33 @@ export function useEarnings() {
   });
 }
 
-export function useCreateInvoice() {
+export function useInvoiceByRequest(requestId: number) {
+  return useQuery({
+    queryKey: ['/api/invoices/by-request', requestId],
+    queryFn: async () => {
+      const res = await fetch(`/api/invoices/by-request/${requestId}`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!requestId,
+  });
+}
+
+export function usePayInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (data: { serviceRequestId: number; amount: number; description: string }) => {
-      const res = await fetch(api.invoices.create.path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+    mutationFn: async (invoiceId: number) => {
+      const url = buildUrl(api.invoices.pay.path, { id: invoiceId });
+      const res = await fetch(url, {
+        method: api.invoices.pay.method,
         credentials: "include",
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to create invoice");
-      }
+      if (!res.ok) throw new Error("Failed to initiate payment");
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.invoices.list.path] });
       queryClient.invalidateQueries({ queryKey: [api.invoices.earnings.path] });
-    },
-  });
-}
-
-export function usePayCommission() {
-  return useMutation({
-    mutationFn: async (invoiceId: number) => {
-      const url = buildUrl(api.invoices.payCommission.path, { id: invoiceId });
-      const res = await fetch(url, {
-        method: api.invoices.payCommission.method,
-        credentials: "include",
-      });
-      if (!res.ok) throw new Error("Failed to initiate payment");
-      return res.json();
     },
   });
 }

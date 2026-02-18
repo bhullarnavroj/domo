@@ -2,13 +2,14 @@ import { useParams } from "wouter";
 import { useServiceRequest, useUpdateServiceRequest } from "@/hooks/use-service-requests";
 import { useQuotes, useCreateQuote, useAcceptQuote } from "@/hooks/use-quotes";
 import { useMessages, useCreateMessage } from "@/hooks/use-messages";
+import { useInvoiceByRequest, usePayInvoice } from "@/hooks/use-invoices";
 import { useAuth } from "@/hooks/use-auth";
 import { useProfile } from "@/hooks/use-profiles";
 import { Navigation } from "@/components/Navigation";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, MapPin, Calendar, DollarSign, CheckCircle, Pencil, MessageCircle, Send } from "lucide-react";
+import { Loader2, MapPin, Calendar, DollarSign, CheckCircle, Pencil, MessageCircle, Send, CreditCard } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -39,6 +40,8 @@ export default function RequestDetails() {
   const { mutate: updateRequest, isPending: isUpdatingRequest } = useUpdateServiceRequest();
   const { data: messagesList } = useMessages(requestId);
   const { mutate: sendMessage, isPending: isSending } = useCreateMessage(requestId);
+  const { data: invoice } = useInvoiceByRequest(requestId);
+  const { mutate: payInvoice, isPending: isPayingInvoice } = usePayInvoice();
   const { user } = useAuth();
   
   const { toast } = useToast();
@@ -178,7 +181,43 @@ export default function RequestDetails() {
                     <Button onClick={handleCompleteRequest} disabled={isUpdatingRequest} className="w-full" data-testid="button-complete">
                       <CheckCircle className="w-4 h-4 mr-2" /> Mark Job as Completed
                     </Button>
-                    <p className="text-xs text-muted-foreground mt-2 text-center">This will generate an invoice for the service provider.</p>
+                    <p className="text-xs text-muted-foreground mt-2 text-center">This will generate an invoice for payment.</p>
+                  </div>
+                )}
+
+                {isOwner && request.status === "completed" && invoice && invoice.status === "pending" && (
+                  <div className="pt-4 border-t" data-testid="section-payment-due">
+                    <Card className="border-primary/30 bg-primary/5">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="flex items-center gap-2 font-semibold">
+                          <CreditCard className="w-5 h-5 text-primary" /> Payment Due
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-muted-foreground">Amount</span>
+                          <span className="text-xl font-bold">${(invoice.amount / 100).toFixed(2)}</span>
+                        </div>
+                        <Button
+                          className="w-full"
+                          onClick={() => payInvoice(invoice.id, {
+                            onSuccess: (data: any) => { window.location.href = data.url; },
+                            onError: () => { toast({ title: "Error", description: "Failed to start payment", variant: "destructive" }); },
+                          })}
+                          disabled={isPayingInvoice}
+                          data-testid="button-pay-now"
+                        >
+                          {isPayingInvoice ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CreditCard className="w-4 h-4 mr-2" />}
+                          Pay Now
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {request.status === "completed" && invoice && invoice.status === "paid" && (
+                  <div className="pt-4 border-t">
+                    <div className="flex items-center justify-center gap-2 text-green-600 font-medium py-3" data-testid="text-payment-complete">
+                      <CheckCircle className="w-5 h-5" /> Payment Complete
+                    </div>
                   </div>
                 )}
               </CardContent>

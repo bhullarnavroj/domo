@@ -16,8 +16,7 @@ export class StripeService {
     });
   }
 
-  // Create checkout session for commission payment
-  async createCommissionCheckoutSession(
+  async createPaymentCheckoutSession(
     invoiceId: number, 
     amount: number, 
     successUrl: string, 
@@ -25,27 +24,24 @@ export class StripeService {
   ) {
     const stripe = await getUncachableStripeClient();
     
-    // Create a product and price on the fly or reuse a standard "Commission" product
-    // For simplicity, we'll create a price object inline
-    
     return await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
         price_data: {
           currency: 'usd',
           product_data: {
-            name: `Commission for Invoice #${invoiceId}`,
+            name: `Payment for DOMO Invoice #${invoiceId}`,
           },
-          unit_amount: amount, // Amount in cents
+          unit_amount: amount,
         },
         quantity: 1,
       }],
       mode: 'payment',
-      success_url: successUrl,
+      success_url: successUrl + (successUrl.includes('?') ? '&' : '?') + 'session_id={CHECKOUT_SESSION_ID}',
       cancel_url: cancelUrl,
       metadata: {
         invoiceId: invoiceId.toString(),
-        type: 'commission_payment'
+        type: 'service_payment'
       }
     });
   }

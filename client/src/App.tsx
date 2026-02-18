@@ -15,6 +15,7 @@ import Onboarding from "@/pages/Onboarding";
 import CreateRequest from "@/pages/CreateRequest";
 import RequestDetails from "@/pages/RequestDetails";
 import Invoices from "@/pages/Invoices";
+import PaymentSuccess from "@/pages/PaymentSuccess";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { user, isLoading } = useAuth();
@@ -57,6 +58,9 @@ function Router() {
       </Route>
       <Route path="/invoices">
         <ProtectedRoute component={Invoices} />
+      </Route>
+      <Route path="/payment/success">
+        <ProtectedRoute component={PaymentSuccess} />
       </Route>
       <Route path="/onboarding">
         <ProtectedRoute component={Onboarding} />

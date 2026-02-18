@@ -1,20 +1,13 @@
-import { useInvoices, usePayCommission, useCreateInvoice, useEarnings } from "@/hooks/use-invoices";
-import { useServiceRequests } from "@/hooks/use-service-requests";
+import { useInvoices, usePayInvoice, useEarnings } from "@/hooks/use-invoices";
 import { Navigation } from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, FileText, CreditCard, DollarSign, TrendingUp, Receipt, Plus, ArrowDownRight, Percent } from "lucide-react";
+import { Loader2, FileText, CreditCard, DollarSign, TrendingUp, Receipt, ArrowDownRight, Percent, CheckCircle2 } from "lucide-react";
 import { format } from "date-fns";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useProfile } from "@/hooks/use-profiles";
 import { useToast } from "@/hooks/use-toast";
-import { COMMISSION_TIERS, getCommissionPercentage, calculateCommission } from "@shared/commission";
-import { useState } from "react";
+import { COMMISSION_TIERS } from "@shared/commission";
 
 function EarningsSummary() {
   const { data: earnings, isLoading } = useEarnings();
@@ -38,6 +31,7 @@ function EarningsSummary() {
       icon: DollarSign,
       color: "text-green-600",
       bg: "bg-green-50 dark:bg-green-950/30",
+      testId: "card-stat-total-earnings",
     },
     {
       label: "DOMO Service Fee",
@@ -45,6 +39,7 @@ function EarningsSummary() {
       icon: ArrowDownRight,
       color: "text-orange-600",
       bg: "bg-orange-50 dark:bg-orange-950/30",
+      testId: "card-stat-domo-service-fee",
     },
     {
       label: "Net Payout",
@@ -52,6 +47,7 @@ function EarningsSummary() {
       icon: TrendingUp,
       color: "text-blue-600",
       bg: "bg-blue-50 dark:bg-blue-950/30",
+      testId: "card-stat-net-payout",
     },
     {
       label: "Invoices",
@@ -59,13 +55,14 @@ function EarningsSummary() {
       icon: Receipt,
       color: "text-purple-600",
       bg: "bg-purple-50 dark:bg-purple-950/30",
+      testId: "card-stat-invoices",
     },
   ];
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
       {stats.map((stat) => (
-        <Card key={stat.label} className="border-border/60" data-testid={`card-stat-${stat.label.toLowerCase().replace(/\s+/g, '-')}`}>
+        <Card key={stat.label} className="border-border/60" data-testid={stat.testId}>
           <CardContent className="p-6">
             <div className="flex items-center gap-3 mb-2">
               <div className={`w-10 h-10 ${stat.bg} rounded-md flex items-center justify-center ${stat.color}`}>
@@ -90,6 +87,9 @@ function FeeTierInfo() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <p className="text-sm text-muted-foreground mb-3">
+          DOMO deducts a service fee from customer payments before disbursing your earnings.
+        </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {COMMISSION_TIERS.map((tier) => (
             <div key={tier.label} className="text-center p-3 rounded-md bg-muted/50">
@@ -103,138 +103,9 @@ function FeeTierInfo() {
   );
 }
 
-function CreateInvoiceDialog() {
-  const { data: allRequests } = useServiceRequests();
-  const { data: invoices } = useInvoices();
-  const { data: profile } = useProfile();
-  const { mutate: createInvoice, isPending } = useCreateInvoice();
-  const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState("");
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-
-  const existingInvoiceRequestIds = new Set(
-    (invoices || []).map((inv: any) => inv.serviceRequestId)
-  );
-
-  const eligibleRequests = (allRequests || []).filter((r: any) => 
-    r.status === "in_progress" && !existingInvoiceRequestIds.has(r.id)
-  );
-
-  const amountCents = Math.round(parseFloat(amount || "0") * 100);
-  const commissionCents = amountCents > 0 ? calculateCommission(amountCents) : 0;
-  const netCents = amountCents - commissionCents;
-  const feePercent = amountCents > 0 ? getCommissionPercentage(amountCents) : "—";
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedRequest || !amount || !description) return;
-
-    createInvoice({
-      serviceRequestId: Number(selectedRequest),
-      amount: amountCents,
-      description,
-    }, {
-      onSuccess: () => {
-        setOpen(false);
-        setSelectedRequest("");
-        setAmount("");
-        setDescription("");
-        toast({ title: "Invoice created", description: "Your invoice has been submitted successfully." });
-      },
-      onError: (err: any) => {
-        toast({ title: "Error", description: err.message, variant: "destructive" });
-      },
-    });
-  };
-
-  if (profile?.role !== "contractor") return null;
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button data-testid="button-create-invoice">
-          <Plus className="w-4 h-4 mr-2" /> Create Invoice
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create Invoice</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          <div>
-            <Label>Service Request</Label>
-            <Select value={selectedRequest} onValueChange={setSelectedRequest}>
-              <SelectTrigger data-testid="select-invoice-request">
-                <SelectValue placeholder="Select a job..." />
-              </SelectTrigger>
-              <SelectContent>
-                {eligibleRequests.length === 0 && (
-                  <div className="text-sm text-muted-foreground p-3 text-center">
-                    No eligible jobs found
-                  </div>
-                )}
-                {eligibleRequests.map((r: any) => (
-                  <SelectItem key={r.id} value={String(r.id)}>{r.title}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label>Amount ($)</Label>
-            <div className="relative">
-              <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="number"
-                step="0.01"
-                min="0.01"
-                className="pl-9"
-                placeholder="0.00"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                required
-                data-testid="input-invoice-amount"
-              />
-            </div>
-            {amountCents > 0 && (
-              <div className="mt-2 p-3 rounded-md bg-muted/50 text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Service Fee ({feePercent})</span>
-                  <span className="text-orange-600 font-medium">-${(commissionCents / 100).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between border-t pt-1">
-                  <span className="font-medium">Your Net Payout</span>
-                  <span className="font-bold text-green-600">${(netCents / 100).toFixed(2)}</span>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <Label>Description</Label>
-            <Textarea
-              placeholder="Describe the work completed..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              required
-              data-testid="input-invoice-description"
-            />
-          </div>
-
-          <Button type="submit" className="w-full" disabled={isPending || !selectedRequest} data-testid="button-submit-invoice">
-            {isPending ? <Loader2 className="animate-spin" /> : "Submit Invoice"}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function Invoices() {
   const { data: invoices, isLoading } = useInvoices();
-  const { mutate: payCommission, isPending: isPaying } = usePayCommission();
+  const { mutate: payInvoice, isPending: isPaying } = usePayInvoice();
   const { data: profile } = useProfile();
   const { toast } = useToast();
 
@@ -243,9 +114,10 @@ export default function Invoices() {
   }
 
   const isProvider = profile?.role === "contractor";
+  const isHomeowner = profile?.role === "homeowner";
 
   const handlePay = (invoiceId: number) => {
-    payCommission(invoiceId, {
+    payInvoice(invoiceId, {
       onSuccess: (data: any) => {
         window.location.href = data.url;
       },
@@ -261,9 +133,8 @@ export default function Invoices() {
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <h1 className="text-3xl font-display font-bold" data-testid="text-invoices-title">
-            {isProvider ? "Payments & Invoices" : "Invoices"}
+            {isProvider ? "Earnings & Payments" : "Invoices & Payments"}
           </h1>
-          {isProvider && <CreateInvoiceDialog />}
         </div>
 
         {isProvider && <EarningsSummary />}
@@ -297,22 +168,24 @@ export default function Invoices() {
 
                   <div className="flex flex-wrap items-center gap-6">
                     <div className="text-right">
-                      <div className="text-xs text-muted-foreground">Job Total</div>
-                      <div className="font-bold">${(invoice.amount / 100).toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {isHomeowner ? "Amount Due" : "Job Total"}
+                      </div>
+                      <div className="font-bold text-lg">${(invoice.amount / 100).toFixed(2)}</div>
                     </div>
 
                     {isProvider && (
                       <>
                         <div className="text-right border-l pl-6">
                           <div className="text-xs text-muted-foreground">
-                            Service Fee ({invoice.commissionRate ? `${invoice.commissionRate}%` : "—"})
+                            Service Fee ({invoice.commissionRate ? `${invoice.commissionRate}%` : ""})
                           </div>
                           <div className="font-medium text-orange-600">
                             -${(invoice.commissionAmount / 100).toFixed(2)}
                           </div>
                         </div>
                         <div className="text-right border-l pl-6">
-                          <div className="text-xs text-muted-foreground">Net Payout</div>
+                          <div className="text-xs text-muted-foreground">Your Payout</div>
                           <div className="font-bold text-green-600">
                             ${((invoice.amount - invoice.commissionAmount) / 100).toFixed(2)}
                           </div>
@@ -321,12 +194,24 @@ export default function Invoices() {
                     )}
 
                     <div className="flex flex-col items-end gap-2 min-w-[120px]">
-                      <StatusBadge status={invoice.status === "paid" ? "paid" : "pending"} />
+                      {invoice.status === "paid" ? (
+                        <div className="flex items-center gap-1.5 text-green-600 font-medium text-sm">
+                          <CheckCircle2 className="w-4 h-4" /> Paid
+                        </div>
+                      ) : (
+                        <StatusBadge status="pending" />
+                      )}
+
+                      {isHomeowner && invoice.status === "pending" && (
+                        <Button size="sm" onClick={() => handlePay(invoice.id)} disabled={isPaying} data-testid={`button-pay-invoice-${invoice.id}`}>
+                          <CreditCard className="w-4 h-4 mr-2" /> Pay Now
+                        </Button>
+                      )}
 
                       {isProvider && invoice.status === "pending" && (
-                        <Button size="sm" onClick={() => handlePay(invoice.id)} disabled={isPaying} data-testid={`button-pay-${invoice.id}`}>
-                          <CreditCard className="w-4 h-4 mr-2" /> Pay Fee
-                        </Button>
+                        <div className="text-xs text-muted-foreground text-right">
+                          Awaiting customer payment
+                        </div>
                       )}
                     </div>
                   </div>

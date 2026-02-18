@@ -1,7 +1,7 @@
 # Domo - Property Services Marketplace
 
 ## Overview
-Domo is a marketplace platform that connects property owners with service professionals across multiple categories (plumbing, electrical, legal, real estate, photography, property management, and more). Property owners post service requests with photos, professionals submit quotes, owners accept quotes, and upon completion, professionals pay a tiered commission via Stripe.
+Domo is a marketplace platform that connects property owners with service professionals across multiple categories (plumbing, electrical, legal, real estate, photography, property management, and more). Property owners post service requests with photos, professionals submit quotes, owners accept quotes, and upon completion the customer pays the full amount via Stripe. DOMO deducts a tiered commission fee and the service provider receives the remainder.
 
 ## Recent Changes
 - 2026-02-18: Rebranded from "FixItPro" to "Domo"
@@ -9,7 +9,9 @@ Domo is a marketplace platform that connects property owners with service profes
 - 2026-02-18: Updated terminology from "contractor" to "service provider/professional" throughout UI
 - 2026-02-18: Fixed authentication bug (setupAuth not being called before routes)
 - 2026-02-18: Implemented tiered commission fees (15% <$500, 12% $500-$2K, 10% $2K-$10K, 8% >$10K)
-- 2026-02-18: Added provider invoice creation and earnings/payments dashboard
+- 2026-02-18: Reworked payment flow: customer pays full amount, DOMO deducts fee, provider gets net
+- 2026-02-18: Auto-invoice creation when customer marks job complete (no manual invoice creation)
+- 2026-02-18: Added earnings/payments dashboard for service providers
 - 2026-02-18: Added in-app messaging system for request communication
 
 ## Architecture

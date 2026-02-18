@@ -158,6 +158,30 @@ export async function registerRoutes(
       }
 
       const updated = await storage.updateServiceRequest(requestId, input);
+
+      if (input.status === "completed" && request.status === "in_progress") {
+        const quotesForRequest = await storage.getQuotesByRequest(requestId);
+        const acceptedQuote = quotesForRequest.find(q => q.status === "accepted");
+        if (acceptedQuote) {
+          const existingInvoices = await storage.getInvoicesByUser(acceptedQuote.contractorId, "contractor");
+          const alreadyInvoiced = existingInvoices.find(inv => inv.serviceRequestId === requestId);
+          if (!alreadyInvoiced) {
+            const commissionAmount = calculateCommission(acceptedQuote.amount);
+            const commissionRate = Math.round(getCommissionRate(acceptedQuote.amount) * 100);
+            await storage.createInvoice({
+              serviceRequestId: requestId,
+              contractorId: acceptedQuote.contractorId,
+              homeownerId: userId,
+              amount: acceptedQuote.amount,
+              commissionAmount,
+              commissionRate,
+              description: acceptedQuote.description,
+              stripePaymentIntentId: null,
+            });
+          }
+        }
+      }
+
       res.json(updated);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -237,26 +261,8 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Only the homeowner can accept quotes" });
     }
 
-    // 1. Mark quote as accepted
     const acceptedQuote = await storage.updateQuote(quoteId, { status: "accepted" });
-    
-    // 2. Mark other quotes as rejected (optional, but good practice)
-    // 3. Update service request status
     await storage.updateServiceRequest(request.id, { status: "in_progress" });
-
-    // 4. Create invoice immediately (pending status)
-    const commissionAmount = calculateCommission(quote.amount);
-    const commissionRate = Math.round(getCommissionRate(quote.amount) * 100);
-    await storage.createInvoice({
-      serviceRequestId: request.id,
-      contractorId: quote.contractorId,
-      homeownerId: userId,
-      amount: quote.amount,
-      commissionAmount,
-      commissionRate,
-      description: quote.description,
-      stripePaymentIntentId: null,
-    });
 
     res.json(acceptedQuote);
   });
@@ -345,65 +351,22 @@ export async function registerRoutes(
     res.json(invoices);
   });
 
-  // Provider creates an invoice for a job
-  app.post(api.invoices.create.path, isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const input = api.invoices.create.input.parse(req.body);
+  // Get invoice by service request (for checking if invoice exists)
+  app.get("/api/invoices/by-request/:requestId", isAuthenticated, async (req: any, res) => {
+    const requestId = Number(req.params.requestId);
+    const userId = req.user.claims.sub;
 
-      const profile = await storage.getProfile(userId);
-      if (!profile || profile.role !== "contractor") {
-        return res.status(403).json({ message: "Only service providers can create invoices" });
-      }
-
-      const request = await storage.getServiceRequest(input.serviceRequestId);
-      if (!request) {
-        return res.status(404).json({ message: "Service request not found" });
-      }
-
-      if (request.status !== "in_progress" && request.status !== "completed") {
-        return res.status(400).json({ message: "Service request must be in progress or completed to invoice" });
-      }
-
-      const quotesForRequest = await storage.getQuotesByRequest(input.serviceRequestId);
-      const acceptedQuote = quotesForRequest.find(
-        q => q.contractorId === userId && q.status === "accepted"
-      );
-      if (!acceptedQuote) {
-        return res.status(403).json({ message: "You must have an accepted quote for this request" });
-      }
-
-      // Check no existing invoice for this request by this contractor
-      const existingInvoices = await storage.getInvoicesByUser(userId, "contractor");
-      const alreadyInvoiced = existingInvoices.find(inv => inv.serviceRequestId === input.serviceRequestId);
-      if (alreadyInvoiced) {
-        return res.status(400).json({ message: "An invoice already exists for this request" });
-      }
-
-      const commissionAmount = calculateCommission(input.amount);
-      const commissionRate = Math.round(getCommissionRate(input.amount) * 100);
-
-      const invoice = await storage.createInvoice({
-        serviceRequestId: input.serviceRequestId,
-        contractorId: userId,
-        homeownerId: request.homeownerId,
-        amount: input.amount,
-        commissionAmount,
-        commissionRate,
-        description: input.description,
-        stripePaymentIntentId: null,
-      });
-
-      res.status(201).json(invoice);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        return res.status(400).json({
-          message: err.errors[0].message,
-          field: err.errors[0].path.join('.'),
-        });
-      }
-      throw err;
+    const request = await storage.getServiceRequest(requestId);
+    if (!request) {
+      return res.status(404).json({ message: "Service request not found" });
     }
+
+    const allInvoices = await storage.getInvoicesByUser(userId, "homeowner");
+    const invoice = allInvoices.find(inv => inv.serviceRequestId === requestId);
+    if (!invoice) {
+      return res.status(404).json({ message: "No invoice found for this request" });
+    }
+    res.json(invoice);
   });
 
   // Earnings summary for service providers
@@ -430,7 +393,46 @@ export async function registerRoutes(
     });
   });
 
-  app.post(api.invoices.payCommission.path, isAuthenticated, async (req: any, res) => {
+  app.post("/api/invoices/:id/confirm-payment", isAuthenticated, async (req: any, res) => {
+    const invoiceId = Number(req.params.id);
+    const userId = req.user.claims.sub;
+    const { sessionId } = req.body || {};
+
+    const invoice = await storage.getInvoice(invoiceId);
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+
+    if (invoice.homeownerId !== userId) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
+
+    if (invoice.status === "paid") {
+      return res.json(invoice);
+    }
+
+    if (!sessionId) {
+      return res.status(400).json({ message: "Missing payment session" });
+    }
+
+    try {
+      const { getUncachableStripeClient } = await import("./stripeClient");
+      const stripe = await getUncachableStripeClient();
+      const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+      if (session.payment_status !== "paid" || session.metadata?.invoiceId !== String(invoiceId)) {
+        return res.status(400).json({ message: "Payment not verified" });
+      }
+
+      const updated = await storage.updateInvoiceStatus(invoiceId, "paid", session.payment_intent as string);
+      res.json(updated);
+    } catch (error: any) {
+      console.error("Payment verification error:", error);
+      return res.status(400).json({ message: "Could not verify payment" });
+    }
+  });
+
+  app.post(api.invoices.pay.path, isAuthenticated, async (req: any, res) => {
     const invoiceId = Number(req.params.id);
     const userId = req.user.claims.sub;
 
@@ -439,19 +441,18 @@ export async function registerRoutes(
       return res.status(404).json({ message: "Invoice not found" });
     }
 
-    if (invoice.contractorId !== userId) {
-      return res.status(403).json({ message: "Only the assigned contractor can pay this commission" });
+    if (invoice.homeownerId !== userId) {
+      return res.status(403).json({ message: "Only the property owner can pay this invoice" });
     }
 
     if (invoice.status === 'paid') {
-      return res.status(400).json({ message: "Commission already paid" });
+      return res.status(400).json({ message: "Invoice already paid" });
     }
 
-    // Create Stripe checkout session
     try {
-      const session = await stripeService.createCommissionCheckoutSession(
+      const session = await stripeService.createPaymentCheckoutSession(
         invoice.id,
-        invoice.commissionAmount,
+        invoice.amount,
         `${req.protocol}://${req.get('host')}/payment/success?invoiceId=${invoice.id}`,
         `${req.protocol}://${req.get('host')}/payment/cancel`
       );
