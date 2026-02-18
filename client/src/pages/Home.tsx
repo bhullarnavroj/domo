@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Navigation } from "@/components/Navigation";
-import { ArrowRight, CheckCircle2, Shield, Zap, Building2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Shield, Zap, Home as HomeIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
@@ -77,7 +77,7 @@ export default function Home() {
       <section className="py-24">
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-display font-bold mb-4">Why Choose Domo?</h2>
+            <h2 className="text-3xl font-display font-bold mb-4">Why Choose DOMO?</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">One marketplace for every property service — from home repairs to legal counsel.</p>
           </div>
 
@@ -115,11 +115,11 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2 font-display font-bold text-2xl">
-              <Building2 className="w-6 h-6 text-primary" />
-              <span>Domo</span>
+              <HomeIcon className="w-6 h-6 text-primary" />
+              <span>DOMO</span>
             </div>
             <div className="text-muted-foreground text-sm">
-              &copy; {new Date().getFullYear()} Domo. All rights reserved.
+              &copy; {new Date().getFullYear()} DOMO. All rights reserved.
             </div>
           </div>
         </div>

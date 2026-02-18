@@ -48,7 +48,7 @@ export default function Onboarding() {
     <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
       <Card className="w-full max-w-lg border-border/60 shadow-xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-display">Welcome to Domo, {user?.firstName}!</CardTitle>
+          <CardTitle className="text-2xl font-display">Welcome to DOMO, {user?.firstName}!</CardTitle>
           <CardDescription>Let's set up your profile to get started.</CardDescription>
         </CardHeader>
         <CardContent>

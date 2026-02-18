@@ -3,7 +3,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useProfile } from "@/hooks/use-profiles";
 import { Button } from "@/components/ui/button";
 import { 
-  Building2, 
+  Home, 
   LayoutDashboard, 
   LogOut, 
   PlusCircle, 
@@ -44,8 +44,8 @@ export function Navigation() {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link href="/">
           <div className="flex items-center gap-2 font-display font-bold text-xl text-primary cursor-pointer" data-testid="link-logo">
-            <Building2 className="w-6 h-6" />
-            <span>Domo</span>
+            <Home className="w-6 h-6" />
+            <span>DOMO</span>
           </div>
         </Link>
 
@@ -110,8 +110,8 @@ export function Navigation() {
               <div className="flex flex-col gap-6 mt-6">
                 <Link href="/">
                   <div className="flex items-center gap-2 font-display font-bold text-xl text-primary" onClick={() => setIsOpen(false)}>
-                    <Building2 className="w-6 h-6" />
-                    <span>Domo</span>
+                    <Home className="w-6 h-6" />
+                    <span>DOMO</span>
                   </div>
                 </Link>
                 <div className="flex flex-col gap-4">
