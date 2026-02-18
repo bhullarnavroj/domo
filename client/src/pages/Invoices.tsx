@@ -258,10 +258,6 @@ function InvoiceDetailDialog({
                 <Download className="w-4 h-4 mr-2" /> Download PDF
               </Button>
             </div>
-
-            <div className="text-[10px] text-muted-foreground text-center pt-2" data-testid="text-dialog-fee-tiers">
-              DOMO Service Fee Tiers: {COMMISSION_TIERS.map(t => `${Math.round(t.rate * 100)}% ${t.label}`).join(" \u00B7 ")}
-            </div>
           </div>
         )}
       </DialogContent>
@@ -374,12 +370,6 @@ async function downloadInvoicePdf(invoice: any, detail: any, isProvider: boolean
     doc.text("Your Payout:", 120, y);
     doc.text(formatCurrency(invoice.amount - invoice.commissionAmount), pageWidth - 20, y, { align: "right" });
   }
-
-  y += 12;
-  doc.setTextColor(150);
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.text("DOMO Service Fee Tiers: " + COMMISSION_TIERS.map(t => `${Math.round(t.rate * 100)}% ${t.label}`).join(" | "), 20, y);
 
   doc.save(`domo-${isProvider ? "record" : "invoice"}-${invoice.id}.pdf`);
 }
