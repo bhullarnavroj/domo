@@ -43,9 +43,9 @@ export default function Home() {
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             {isAuthenticated ? (
-              <Link href="/dashboard">
-                <Button size="lg" data-testid="button-go-dashboard">
-                  Go to Dashboard <ArrowRight className="ml-2 w-5 h-5" />
+              <Link href="/create-request">
+                <Button size="lg" data-testid="button-post-request">
+                  Post a Request <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
             ) : (
