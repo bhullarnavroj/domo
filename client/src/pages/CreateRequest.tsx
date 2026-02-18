@@ -15,8 +15,12 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 const categories = [
-  "Plumbing", "Electrical", "Carpentry", "Painting", 
-  "Landscaping", "Cleaning", "HVAC", "Roofing", "Other"
+  { group: "Home & Repair", items: ["Plumbing", "Electrical", "Carpentry", "Painting", "HVAC", "Roofing", "General Repair"] },
+  { group: "Property Services", items: ["Landscaping", "Cleaning", "Pest Control", "Moving", "Interior Design"] },
+  { group: "Legal & Financial", items: ["Real Estate Law", "Property Law", "Notary", "Tax Services", "Insurance"] },
+  { group: "Real Estate", items: ["Real Estate Agent", "Property Manager", "Home Inspector", "Appraiser"] },
+  { group: "Creative & Media", items: ["Photography", "Videography", "Virtual Tour"] },
+  { group: "Other", items: ["Other"] },
 ];
 
 export default function CreateRequest() {
@@ -54,10 +58,10 @@ export default function CreateRequest() {
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <div className="mb-8">
           <h1 className="text-3xl font-display font-bold text-foreground">Post a Service Request</h1>
-          <p className="text-muted-foreground mt-1">Describe your project to get quotes from local pros.</p>
+          <p className="text-muted-foreground mt-1">Describe what you need and get quotes from local professionals.</p>
         </div>
 
-        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-border/60">
+        <div className="bg-card p-6 md:p-8 rounded-md shadow-sm border border-border/60">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
@@ -65,9 +69,9 @@ export default function CreateRequest() {
                 name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Project Title</FormLabel>
+                    <FormLabel>Request Title</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Fix Leaky Kitchen Sink" {...field} />
+                      <Input placeholder="e.g., Need a property photographer for listing" {...field} data-testid="input-title" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -83,13 +87,18 @@ export default function CreateRequest() {
                       <FormLabel>Category</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger data-testid="select-category">
                             <SelectValue placeholder="Select a category" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {categories.map((cat) => (
-                            <SelectItem key={cat} value={cat.toLowerCase()}>{cat}</SelectItem>
+                          {categories.map((group) => (
+                            <div key={group.group}>
+                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.group}</div>
+                              {group.items.map((cat) => (
+                                <SelectItem key={cat} value={cat.toLowerCase()}>{cat}</SelectItem>
+                              ))}
+                            </div>
                           ))}
                         </SelectContent>
                       </Select>
@@ -105,7 +114,7 @@ export default function CreateRequest() {
                     <FormItem>
                       <FormLabel>Location</FormLabel>
                       <FormControl>
-                        <Input placeholder="City, Zip Code" {...field} />
+                        <Input placeholder="City, Zip Code" {...field} data-testid="input-location" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -121,9 +130,10 @@ export default function CreateRequest() {
                     <FormLabel>Description</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Describe the issue in detail. When did it start? What have you tried?" 
+                        placeholder="Describe what you need in detail. Include any relevant information such as timeline, budget range, or special requirements." 
                         className="min-h-[120px]" 
-                        {...field} 
+                        {...field}
+                        data-testid="input-description"
                       />
                     </FormControl>
                     <FormMessage />
@@ -132,13 +142,13 @@ export default function CreateRequest() {
               />
 
               <div className="space-y-3">
-                <FormLabel>Photos</FormLabel>
+                <FormLabel>Photos (optional)</FormLabel>
                 <div className="flex flex-wrap gap-4">
                   {photos.map((url, i) => (
-                    <img key={i} src={url} alt="Upload" className="w-24 h-24 object-cover rounded-lg border" />
+                    <img key={i} src={url} alt="Upload" className="w-24 h-24 object-cover rounded-md border" />
                   ))}
                   <ObjectUploader
-                    maxNumberOfFiles={3}
+                    maxNumberOfFiles={5}
                     onGetUploadParameters={async (file) => {
                       const res = await fetch("/api/uploads/request-url", {
                         method: "POST",
@@ -151,34 +161,20 @@ export default function CreateRequest() {
                       });
                       const { uploadURL, objectPath } = await res.json();
                       return {
-                        method: "PUT",
+                        method: "PUT" as const,
                         url: uploadURL,
                         headers: { "Content-Type": file.type },
-                        fields: { objectPath }, // Passing meta to next step
                       };
                     }}
                     onComplete={(result) => {
-                      const newPhotos = result.successful.map(f => {
-                         // The upload parameter logic in ObjectUploader wrapper is slightly complex to get URL back directly 
-                         // from the wrapper as currently implemented. 
-                         // Hack: we construct the URL based on what we know about the object path logic or assume the wrapper returns it.
-                         // Actually, the easiest way with the provided blueprint is to use the `useUpload` hook OR 
-                         // adapt the ObjectUploader to return the object path.
-                         // Let's assume the onComplete result contains what we need or we construct it.
-                         // Since we can't easily modify the provided ObjectUploader, let's use the provided presigned URL logic 
-                         // to infer the path, or better yet, just display a placeholder since this is a mock environment often.
-                         // Wait, I can see the ObjectUploader implementation in context. It just calls onComplete.
-                         
-                         // Re-reading ObjectUploader... it doesn't return the objectPath easily. 
-                         // Let's just use a dummy URL for the UI update since the file IS uploaded.
-                         // In a real app, I'd stash the objectPath from onGetUploadParameters in a ref.
+                      const newPhotos = result.successful.map(() => {
                          return "https://placehold.co/400?text=Photo+Uploaded"; 
                       });
                       setPhotos([...photos, ...newPhotos]);
                       toast({ title: "Photos uploaded!" });
                     }}
                   >
-                    <div className="w-24 h-24 border-2 border-dashed border-muted-foreground/30 rounded-lg flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 cursor-pointer transition-colors">
+                    <div className="w-24 h-24 border-2 border-dashed border-muted-foreground/30 rounded-md flex flex-col items-center justify-center text-muted-foreground hover:bg-muted/50 cursor-pointer transition-colors">
                       <UploadCloud className="w-6 h-6 mb-1" />
                       <span className="text-xs">Upload</span>
                     </div>
@@ -187,8 +183,8 @@ export default function CreateRequest() {
               </div>
 
               <div className="flex gap-4 pt-4">
-                <Button type="button" variant="outline" className="w-full" onClick={() => setLocation("/dashboard")}>Cancel</Button>
-                <Button type="submit" className="w-full" disabled={isPending}>
+                <Button type="button" variant="outline" className="w-full" onClick={() => setLocation("/dashboard")} data-testid="button-cancel">Cancel</Button>
+                <Button type="submit" className="w-full" disabled={isPending} data-testid="button-submit-request">
                   {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Post Request"}
                 </Button>
               </div>

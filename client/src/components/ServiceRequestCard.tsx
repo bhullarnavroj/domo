@@ -13,7 +13,7 @@ interface ServiceRequestCardProps {
 
 export function ServiceRequestCard({ request, role }: ServiceRequestCardProps) {
   return (
-    <Card className="hover:shadow-lg transition-all duration-200 group border-border/60">
+    <Card className="hover:shadow-lg transition-all duration-200 group border-border/60" data-testid={`card-request-${request.id}`}>
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start gap-4">
           <div>
@@ -42,8 +42,8 @@ export function ServiceRequestCard({ request, role }: ServiceRequestCardProps) {
       </CardContent>
       <CardFooter className="pt-3 border-t bg-muted/20">
         <Link href={`/requests/${request.id}`} className="w-full">
-          <Button variant="ghost" className="w-full justify-between hover:bg-primary hover:text-primary-foreground group-hover:translate-x-1 transition-all">
-            {role === "contractor" ? "View & Quote" : "Manage Request"}
+          <Button variant="ghost" className="w-full justify-between" data-testid={`button-view-request-${request.id}`}>
+            {role === "contractor" ? "View & Quote" : "View Details"}
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </Link>

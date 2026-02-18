@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProfileSchema } from "@shared/schema";
@@ -18,8 +17,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
-import { Hammer, Home } from "lucide-react";
-import { Loader2 } from "lucide-react";
+import { Briefcase, Home, Loader2 } from "lucide-react";
 
 export default function Onboarding() {
   const { user } = useAuth();
@@ -50,7 +48,7 @@ export default function Onboarding() {
     <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
       <Card className="w-full max-w-lg border-border/60 shadow-xl">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-display">Welcome, {user?.firstName}!</CardTitle>
+          <CardTitle className="text-2xl font-display">Welcome to Domo, {user?.firstName}!</CardTitle>
           <CardDescription>Let's set up your profile to get started.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -74,7 +72,7 @@ export default function Onboarding() {
                           </FormControl>
                           <FormLabel className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-all">
                             <Home className="mb-3 h-6 w-6" />
-                            Homeowner
+                            Property Owner
                           </FormLabel>
                         </FormItem>
                         <FormItem>
@@ -82,8 +80,8 @@ export default function Onboarding() {
                             <RadioGroupItem value="contractor" className="peer sr-only" />
                           </FormControl>
                           <FormLabel className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-all">
-                            <Hammer className="mb-3 h-6 w-6" />
-                            Contractor
+                            <Briefcase className="mb-3 h-6 w-6" />
+                            Service Provider
                           </FormLabel>
                         </FormItem>
                       </RadioGroup>
@@ -100,7 +98,7 @@ export default function Onboarding() {
                   <FormItem>
                     <FormLabel>Phone Number</FormLabel>
                     <FormControl>
-                      <Input placeholder="+1 (555) 000-0000" {...field} />
+                      <Input placeholder="+1 (555) 000-0000" {...field} data-testid="input-phone" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -114,7 +112,7 @@ export default function Onboarding() {
                   <FormItem>
                     <FormLabel>Address / Location</FormLabel>
                     <FormControl>
-                      <Input placeholder="City, State" {...field} />
+                      <Input placeholder="City, State" {...field} data-testid="input-address" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -128,9 +126,9 @@ export default function Onboarding() {
                     name="businessName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Business Name</FormLabel>
+                        <FormLabel>Business / Practice Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Acme Construction" {...field} />
+                          <Input placeholder="e.g., Smith & Associates Law" {...field} data-testid="input-business-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -141,9 +139,9 @@ export default function Onboarding() {
                     name="description"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Business Description</FormLabel>
+                        <FormLabel>Service Description</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Tell us about your services..." {...field} />
+                          <Textarea placeholder="Tell us about the services you offer..." {...field} data-testid="input-description" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -152,7 +150,7 @@ export default function Onboarding() {
                 </>
               )}
 
-              <Button type="submit" className="w-full" size="lg" disabled={isPending}>
+              <Button type="submit" className="w-full" size="lg" disabled={isPending} data-testid="button-complete-profile">
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Complete Profile"}
               </Button>
             </form>

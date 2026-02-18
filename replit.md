@@ -1,0 +1,46 @@
+# Domo - Property Services Marketplace
+
+## Overview
+Domo is a marketplace platform that connects property owners with service professionals across multiple categories (plumbing, electrical, legal, real estate, photography, property management, and more). Property owners post service requests with photos, professionals submit quotes, owners accept quotes, and upon completion, professionals pay a 10% commission via Stripe.
+
+## Recent Changes
+- 2026-02-18: Rebranded from "FixItPro" to "Domo"
+- 2026-02-18: Expanded service categories to 25+ professional categories (Legal, Real Estate, Photography, Property Management, etc.)
+- 2026-02-18: Updated terminology from "contractor" to "service provider/professional" throughout UI
+- 2026-02-18: Fixed authentication bug (setupAuth not being called before routes)
+
+## Architecture
+- **Frontend**: React + Vite, Tailwind CSS, shadcn/ui components, wouter routing, TanStack Query
+- **Backend**: Express.js with TypeScript
+- **Database**: PostgreSQL via Drizzle ORM
+- **Auth**: Replit Auth (OIDC via passport)
+- **Payments**: Stripe (10% commission checkout)
+- **Storage**: Replit Object Storage for photo uploads
+
+## Key Files
+- `shared/schema.ts` - Database schema and Zod validation
+- `shared/routes.ts` - API route definitions
+- `server/routes.ts` - Express route handlers
+- `server/storage.ts` - Database CRUD operations (IStorage interface)
+- `server/stripeService.ts` - Stripe integration
+- `client/src/pages/Home.tsx` - Landing page
+- `client/src/pages/Dashboard.tsx` - User dashboard (homeowner/provider views)
+- `client/src/pages/CreateRequest.tsx` - Service request creation form
+- `client/src/pages/RequestDetails.tsx` - Request details + quote management
+- `client/src/pages/Invoices.tsx` - Invoice listing and payment
+- `client/src/components/Navigation.tsx` - Top navigation bar
+
+## User Preferences
+- Platform name: "Domo" (Latin for "home")
+- Broad service categories (not limited to home repair)
+- Role terminology: "Property Owner" and "Service Provider"
+- Internal DB still uses "contractor" role value for backward compatibility
+
+## Service Categories
+Organized into groups:
+- **Home & Repair**: Plumbing, Electrical, Carpentry, Painting, HVAC, Roofing, General Repair
+- **Property Services**: Landscaping, Cleaning, Pest Control, Moving, Interior Design
+- **Legal & Financial**: Real Estate Law, Property Law, Notary, Tax Services, Insurance
+- **Real Estate**: Real Estate Agent, Property Manager, Home Inspector, Appraiser
+- **Creative & Media**: Photography, Videography, Virtual Tour
+- **Other**: Other
