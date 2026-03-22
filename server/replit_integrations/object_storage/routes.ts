@@ -35,6 +35,17 @@ export function registerObjectStorageRoutes(app: Express): void {
    * IMPORTANT: The client should NOT send the file to this endpoint.
    * Send JSON metadata only, then upload the file directly to uploadURL.
    */
+  const ALLOWED_CONTENT_TYPES = new Set([
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "application/pdf",
+  ]);
+
+  const IMAGE_CONTENT_TYPES = new Set(["image/jpeg", "image/jpg", "image/png"]);
+  const IMAGE_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+  const PDF_MAX_SIZE = 25 * 1024 * 1024;   // 25 MB
+
   app.post("/api/uploads/request-url", async (req, res) => {
     try {
       const { name, size, contentType } = req.body;
@@ -42,6 +53,36 @@ export function registerObjectStorageRoutes(app: Express): void {
       if (!name) {
         return res.status(400).json({
           error: "Missing required field: name",
+        });
+      }
+
+      if (typeof contentType !== "string" || !contentType) {
+        return res.status(400).json({
+          error: "Missing required field: contentType",
+        });
+      }
+
+      if (typeof size !== "number" || !Number.isFinite(size) || size < 0) {
+        return res.status(400).json({
+          error: "Missing or invalid field: size must be a non-negative number",
+        });
+      }
+
+      if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+        return res.status(400).json({
+          error: "Only jpg, jpeg, png, and pdf files are allowed.",
+        });
+      }
+
+      if (IMAGE_CONTENT_TYPES.has(contentType) && size > IMAGE_MAX_SIZE) {
+        return res.status(400).json({
+          error: "Image files must not exceed 10 MB.",
+        });
+      }
+
+      if (contentType === "application/pdf" && size > PDF_MAX_SIZE) {
+        return res.status(400).json({
+          error: "PDF files must not exceed 25 MB.",
         });
       }
 

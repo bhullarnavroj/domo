@@ -8,9 +8,28 @@ import "@uppy/dashboard/css/style.min.css";
 import AwsS3 from "@uppy/aws-s3";
 import { Button } from "@/components/ui/button";
 
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/jpg", "image/png", "application/pdf"] as const;
+const IMAGE_MIME_TYPES = new Set(["image/jpeg", "image/jpg", "image/png"]);
+const IMAGE_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+const PDF_MAX_SIZE = 25 * 1024 * 1024;   // 25 MB
+
+function getFileValidationError(file: UppyFile<Record<string, unknown>, Record<string, unknown>>): string | null {
+  const contentType = file.type || "";
+  if (!ALLOWED_MIME_TYPES.includes(contentType as typeof ALLOWED_MIME_TYPES[number])) {
+    return "Only jpg, jpeg, png, and pdf files are allowed.";
+  }
+  const size = file.size ?? 0;
+  if (IMAGE_MIME_TYPES.has(contentType) && size > IMAGE_MAX_SIZE) {
+    return "Image files must not exceed 10 MB.";
+  }
+  if (contentType === "application/pdf" && size > PDF_MAX_SIZE) {
+    return "PDF files must not exceed 25 MB.";
+  }
+  return null;
+}
+
 interface ObjectUploaderProps {
   maxNumberOfFiles?: number;
-  maxFileSize?: number;
   /**
    * Function to get upload parameters for each file.
    * IMPORTANT: This receives the file object - use file.name, file.size, file.type
@@ -45,10 +64,11 @@ interface ObjectUploaderProps {
  * The component uses Uppy v5 under the hood to handle all file upload functionality.
  * All file management features are automatically handled by the Uppy dashboard modal.
  *
+ * Accepted file types: jpg, jpeg, png (max 10 MB each), pdf (max 25 MB).
+ *
  * @param props - Component props
  * @param props.maxNumberOfFiles - Maximum number of files allowed to be uploaded
  *   (default: 1)
- * @param props.maxFileSize - Maximum file size in bytes (default: 10MB)
  * @param props.onGetUploadParameters - Function to get upload parameters for each file.
  *   Receives the UppyFile object with file.name, file.size, file.type properties.
  *   Use these to request per-file presigned URLs from your backend. Returns method,
@@ -61,7 +81,6 @@ interface ObjectUploaderProps {
  */
 export function ObjectUploader({
   maxNumberOfFiles = 1,
-  maxFileSize = 10485760, // 10MB default
   onGetUploadParameters,
   onComplete,
   buttonClassName,
@@ -72,9 +91,15 @@ export function ObjectUploader({
     new Uppy({
       restrictions: {
         maxNumberOfFiles,
-        maxFileSize,
       },
       autoProceed: false,
+      onBeforeFileAdded: (currentFile) => {
+        const errorMsg = getFileValidationError(currentFile);
+        if (errorMsg) {
+          throw new Error(errorMsg);
+        }
+        return true;
+      },
     })
       .use(AwsS3, {
         shouldUseMultipart: false,
@@ -100,4 +125,3 @@ export function ObjectUploader({
     </div>
   );
 }
-

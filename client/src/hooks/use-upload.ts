@@ -1,6 +1,30 @@
 import { useState, useCallback } from "react";
 import type { UppyFile } from "@uppy/core";
 
+const ALLOWED_CONTENT_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "application/pdf",
+]);
+
+const IMAGE_CONTENT_TYPES = new Set(["image/jpeg", "image/jpg", "image/png"]);
+const IMAGE_MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+const PDF_MAX_SIZE = 25 * 1024 * 1024;   // 25 MB
+
+function validateFile(contentType: string, size: number): string | null {
+  if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+    return "Only jpg, jpeg, png, and pdf files are allowed.";
+  }
+  if (IMAGE_CONTENT_TYPES.has(contentType) && size > IMAGE_MAX_SIZE) {
+    return "Image files must not exceed 10 MB.";
+  }
+  if (contentType === "application/pdf" && size > PDF_MAX_SIZE) {
+    return "PDF files must not exceed 25 MB.";
+  }
+  return null;
+}
+
 interface UploadMetadata {
   name: string;
   size: number;
@@ -116,6 +140,16 @@ export function useUpload(options: UseUploadOptions = {}) {
       setError(null);
       setProgress(0);
 
+      const contentType = file.type || "application/octet-stream";
+      const validationError = validateFile(contentType, file.size);
+      if (validationError) {
+        const err = new Error(validationError);
+        setError(err);
+        options.onError?.(err);
+        setIsUploading(false);
+        return null;
+      }
+
       try {
         // Step 1: Request presigned URL (send metadata as JSON)
         setProgress(10);
@@ -161,6 +195,12 @@ export function useUpload(options: UseUploadOptions = {}) {
       url: string;
       headers?: Record<string, string>;
     }> => {
+      const contentType = file.type || "application/octet-stream";
+      const validationError = validateFile(contentType, file.size ?? 0);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
       // Use the actual file properties to request a per-file presigned URL
       const response = await fetch("/api/uploads/request-url", {
         method: "POST",
@@ -175,7 +215,8 @@ export function useUpload(options: UseUploadOptions = {}) {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get upload URL");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to get upload URL");
       }
 
       const data = await response.json();
