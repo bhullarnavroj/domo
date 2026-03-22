@@ -631,6 +631,67 @@ export async function registerRoutes(
     res.json(profile);
   });
 
+  // === REFUND ENDPOINT (Admin only) ===
+
+  app.post("/api/payments/refund", isAuthenticated, isAdmin, async (req: any, res) => {
+    const adminUserId = req.user.claims.sub;
+    const { invoiceId, amount } = req.body;
+
+    if (!invoiceId || typeof invoiceId !== "number") {
+      return res.status(400).json({ message: "invoiceId (number) is required" });
+    }
+    if (amount !== undefined && (typeof amount !== "number" || amount <= 0)) {
+      return res.status(400).json({ message: "amount must be a positive number of cents" });
+    }
+
+    const invoice = await storage.getInvoice(invoiceId);
+    if (!invoice) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+    if (invoice.status !== "paid") {
+      return res.status(400).json({ message: `Cannot refund invoice with status '${invoice.status}' — only paid invoices can be refunded` });
+    }
+    if (!invoice.stripePaymentIntentId) {
+      return res.status(400).json({ message: "Invoice has no associated Stripe payment intent" });
+    }
+
+    const isPartial = amount !== undefined && amount < invoice.amount;
+    const refundAmount = isPartial ? amount : undefined; // undefined = full refund in Stripe
+
+    let stripeRefund;
+    try {
+      const stripe = await getUncachableStripeClient();
+      stripeRefund = await stripe.refunds.create({
+        payment_intent: invoice.stripePaymentIntentId,
+        ...(refundAmount !== undefined && { amount: refundAmount }),
+      });
+    } catch (err: any) {
+      console.error("Stripe refund error:", err.message);
+      return res.status(502).json({ message: `Stripe refund failed: ${err.message}` });
+    }
+
+    const newStatus = isPartial ? "partially_refunded" : "refunded";
+    const updatedInvoice = await storage.updateInvoiceStatus(invoiceId, newStatus);
+
+    const refundLog = await storage.createRefundLog({
+      invoiceId,
+      adminUserId,
+      stripeRefundId: stripeRefund.id,
+      amount: stripeRefund.amount,
+      isPartial,
+    });
+
+    console.log(`Refund issued: invoiceId=${invoiceId} stripeRefundId=${stripeRefund.id} amount=${stripeRefund.amount} partial=${isPartial} by adminUserId=${adminUserId} at ${refundLog.createdAt}`);
+
+    res.json({
+      invoice: updatedInvoice,
+      refundLog,
+      stripeRefundId: stripeRefund.id,
+      amountRefunded: stripeRefund.amount,
+      status: stripeRefund.status,
+    });
+  });
+
   // === STRIPE WEBHOOK ===
 
   app.post("/api/stripe/webhook", async (req: any, res) => {

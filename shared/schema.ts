@@ -64,9 +64,19 @@ export const invoices = pgTable("invoices", {
   commissionAmount: integer("commission_amount").notNull(),
   commissionRate: integer("commission_rate"),
   description: text("description"),
-  status: text("status", { enum: ["pending", "paid", "failed"] }).default("pending").notNull(),
+  status: text("status", { enum: ["pending", "paid", "failed", "refunded", "partially_refunded"] }).default("pending").notNull(),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const refundLogs = pgTable("refund_logs", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").notNull().references(() => invoices.id),
+  adminUserId: text("admin_user_id").notNull().references(() => authUsers.id),
+  stripeRefundId: text("stripe_refund_id").notNull(),
+  amount: integer("amount").notNull(), // Amount refunded in cents
+  isPartial: boolean("is_partial").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const messages = pgTable("messages", {
@@ -99,6 +109,8 @@ export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
 
 export type Invoice = typeof invoices.$inferSelect;
+
+export type RefundLog = typeof refundLogs.$inferSelect;
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;

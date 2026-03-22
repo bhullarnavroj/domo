@@ -1,10 +1,11 @@
 import { 
-  users, profiles, serviceRequests, quotes, invoices, messages,
+  users, profiles, serviceRequests, quotes, invoices, messages, refundLogs,
   type User, type InsertUser,
   type Profile, type InsertProfile, type UpdateProfileRequest,
   type ServiceRequest, type InsertServiceRequest, type UpdateServiceRequestRequest,
   type Quote, type InsertQuote, type UpdateQuoteRequest,
   type Invoice,
+  type RefundLog,
   type Message,
 } from "@shared/schema";
 import { db } from "./db";
@@ -48,7 +49,11 @@ export interface IStorage {
   getInvoice(id: number): Promise<Invoice | undefined>;
   getInvoicesByUser(userId: string, role: "homeowner" | "contractor"): Promise<Invoice[]>;
   createInvoice(invoice: Omit<Invoice, "id" | "createdAt" | "status" | "commissionRate" | "description" | "baseAmount" | "gstAmount" | "pstAmount" | "taxRegion"> & { commissionRate?: number | null; description?: string | null; baseAmount?: number | null; gstAmount?: number | null; pstAmount?: number | null; taxRegion?: string | null }): Promise<Invoice>;
-  updateInvoiceStatus(id: number, status: "pending" | "paid" | "failed", stripePaymentIntentId?: string): Promise<Invoice>;
+  updateInvoiceStatus(id: number, status: "pending" | "paid" | "failed" | "refunded" | "partially_refunded", stripePaymentIntentId?: string): Promise<Invoice>;
+
+  // Refund Logs
+  createRefundLog(log: Omit<RefundLog, "id" | "createdAt">): Promise<RefundLog>;
+  getRefundLogsByInvoice(invoiceId: number): Promise<RefundLog[]>;
 
   // Admin
   getAllUsers(): Promise<AdminUser[]>;
@@ -203,7 +208,7 @@ export class DatabaseStorage implements IStorage {
     return newInvoice;
   }
 
-  async updateInvoiceStatus(id: number, status: "pending" | "paid" | "failed", stripePaymentIntentId?: string): Promise<Invoice> {
+  async updateInvoiceStatus(id: number, status: "pending" | "paid" | "failed" | "refunded" | "partially_refunded", stripePaymentIntentId?: string): Promise<Invoice> {
     const updates: Partial<Invoice> = { status };
     if (stripePaymentIntentId) {
       updates.stripePaymentIntentId = stripePaymentIntentId;
@@ -270,6 +275,18 @@ export class DatabaseStorage implements IStorage {
   async rejectContractor(userId: string): Promise<Profile> {
     const [updated] = await db.update(profiles).set({ isVerified: false }).where(eq(profiles.userId, userId)).returning();
     return updated;
+  }
+
+  // Refund Log Operations
+  async createRefundLog(log: Omit<RefundLog, "id" | "createdAt">): Promise<RefundLog> {
+    const [newLog] = await db.insert(refundLogs).values(log).returning();
+    return newLog;
+  }
+
+  async getRefundLogsByInvoice(invoiceId: number): Promise<RefundLog[]> {
+    return await db.select().from(refundLogs)
+      .where(eq(refundLogs.invoiceId, invoiceId))
+      .orderBy(desc(refundLogs.createdAt));
   }
 }
 
