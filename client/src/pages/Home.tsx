@@ -36,18 +36,25 @@ export default function Home() {
             get competitive quotes from trusted experts — fast, simple, done.
           </motion.p>
           
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             {isAuthenticated ? (
-              <Link href="/create-request">
-                <Button size="lg" data-testid="button-post-request">
-                  Post a Request <ArrowRight className="ml-2 w-5 h-5" />
-                </Button>
-              </Link>
+              <>
+                <Link href="/create-request">
+                  <Button size="lg" data-testid="button-post-request">
+                    Post a Request <ArrowRight className="ml-2 w-5 h-5" />
+                  </Button>
+                </Link>
+                <Link href="/onboarding">
+                  <Button size="lg" variant="outline" data-testid="button-join-pro" onClick={() => localStorage.setItem("intended_role", "contractor")}>
+                    Join as a Pro
+                  </Button>
+                </Link>
+              </>
             ) : (
               <>
                 <Button size="lg" data-testid="button-find-professional" onClick={() => { localStorage.setItem("intended_role", "homeowner"); window.location.href = "/api/login"; }}>
