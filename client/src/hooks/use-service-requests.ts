@@ -1,8 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, buildUrl, type CreateServiceRequestRequest, type UpdateServiceRequestRequest } from "@shared/routes";
 
-// List requests (filterable)
-export function useServiceRequests(filters?: { category?: string; status?: "open" | "in_progress" | "completed" | "cancelled" }) {
+// List requests (filterable + paginated)
+export function useServiceRequests(filters?: {
+  category?: string;
+  status?: "open" | "in_progress" | "completed" | "cancelled";
+  search?: string;
+  limit?: number;
+  offset?: number;
+}) {
   const queryKey = [api.serviceRequests.list.path, filters];
   return useQuery({
     queryKey,
@@ -10,7 +16,10 @@ export function useServiceRequests(filters?: { category?: string; status?: "open
       const url = new URL(api.serviceRequests.list.path, window.location.origin);
       if (filters?.category) url.searchParams.set("category", filters.category);
       if (filters?.status) url.searchParams.set("status", filters.status);
-      
+      if (filters?.search) url.searchParams.set("search", filters.search);
+      if (filters?.limit) url.searchParams.set("limit", String(filters.limit));
+      if (filters?.offset) url.searchParams.set("offset", String(filters.offset));
+
       const res = await fetch(url.toString(), { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch service requests");
       return api.serviceRequests.list.responses[200].parse(await res.json());

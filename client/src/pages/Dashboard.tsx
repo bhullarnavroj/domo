@@ -3,17 +3,24 @@ import { useServiceRequests } from "@/hooks/use-service-requests";
 import { Navigation } from "@/components/Navigation";
 import { ServiceRequestCard } from "@/components/ServiceRequestCard";
 import { Button } from "@/components/ui/button";
-import { Loader2, Plus, ArrowLeftRight } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Plus, ArrowLeftRight, Search } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 export default function Dashboard() {
   const { data: profile, isLoading: profileLoading } = useProfile();
   const { mutate: updateProfile, isPending: isSwtiching } = useUpdateProfile();
   const { toast } = useToast();
-  
-  const { data: requests, isLoading: requestsLoading } = useServiceRequests(
-    profile?.role === "homeowner" ? undefined : { status: "open" }
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 12;
+
+  const { data: requestsData, isLoading: requestsLoading } = useServiceRequests(
+    profile?.role === "homeowner"
+      ? { search: search || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE }
+      : { status: "open", search: search || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE }
   );
 
   const handleSwitchRole = () => {
@@ -28,7 +35,7 @@ export default function Dashboard() {
     });
   };
 
-  if (profileLoading || requestsLoading) {
+  if (profileLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -36,9 +43,12 @@ export default function Dashboard() {
     );
   }
 
-  const myRequests = profile?.role === "homeowner" 
-    ? requests?.filter(r => r.homeownerId === profile.userId)
-    : requests;
+  const allRequests = requestsData?.data ?? [];
+  const totalRequests = requestsData?.total ?? 0;
+  const myRequests = profile?.role === "homeowner"
+    ? allRequests.filter(r => r.homeownerId === profile.userId)
+    : allRequests;
+  const totalPages = Math.ceil(totalRequests / PAGE_SIZE);
 
   return (
     <div className="min-h-screen bg-muted/30">
@@ -58,8 +68,8 @@ export default function Dashboard() {
           </div>
           
           <div className="flex items-center gap-3 flex-wrap">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="default"
               onClick={handleSwitchRole}
               disabled={isSwtiching}
@@ -78,16 +88,39 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {myRequests && myRequests.length > 0 ? (
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by title, description, or location..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            className="pl-9"
+          />
+        </div>
+
+        {requestsLoading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : myRequests.length > 0 ? (
+          <>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {myRequests.map((request) => (
-              <ServiceRequestCard 
-                key={request.id} 
-                request={request} 
-                role={profile?.role as "homeowner" | "contractor"} 
+              <ServiceRequestCard
+                key={request.id}
+                request={request}
+                role={profile?.role as "homeowner" | "contractor"}
               />
             ))}
           </div>
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-3 mt-8">
+              <Button variant="outline" disabled={page === 0} onClick={() => setPage(p => p - 1)}>Previous</Button>
+              <span className="text-sm text-muted-foreground">Page {page + 1} of {totalPages}</span>
+              <Button variant="outline" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>Next</Button>
+            </div>
+          )}
+          </>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 bg-card rounded-md border border-dashed border-border">
             <div className="bg-primary/10 p-4 rounded-full mb-4">

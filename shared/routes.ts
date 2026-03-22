@@ -77,9 +77,15 @@ export const api = {
       input: z.object({
         category: z.string().optional(),
         status: z.enum(["open", "in_progress", "completed", "cancelled"]).optional(),
+        search: z.string().optional(),
+        limit: z.number().optional(),
+        offset: z.number().optional(),
       }).optional(),
       responses: {
-        200: z.array(z.custom<typeof serviceRequests.$inferSelect>()),
+        200: z.object({
+          data: z.array(z.custom<typeof serviceRequests.$inferSelect>()),
+          total: z.number(),
+        }),
       },
     },
     get: {

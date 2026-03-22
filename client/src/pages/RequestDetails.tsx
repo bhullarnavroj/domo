@@ -9,7 +9,8 @@ import { Navigation } from "@/components/Navigation";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, MapPin, Calendar, DollarSign, CheckCircle, Pencil, MessageCircle, Send, CreditCard } from "lucide-react";
+import { Loader2, MapPin, Calendar, DollarSign, CheckCircle, Pencil, MessageCircle, Send, CreditCard, Star } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -54,6 +55,43 @@ export default function RequestDetails() {
   const [editDescription, setEditDescription] = useState("");
   const [editCategory, setEditCategory] = useState("");
   const [editLocation, setEditLocation] = useState("");
+  const [reviewRating, setReviewRating] = useState(0);
+  const [reviewComment, setReviewComment] = useState("");
+  const [hoverRating, setHoverRating] = useState(0);
+  const queryClient = useQueryClient();
+
+  const { data: existingReview } = useQuery({
+    queryKey: [`/api/service-requests/${requestId}/review`],
+    queryFn: async () => {
+      const res = await fetch(`/api/service-requests/${requestId}/review`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!requestId,
+  });
+
+  const { mutate: submitReview, isPending: isSubmittingReview } = useMutation({
+    mutationFn: async ({ rating, comment }: { rating: number; comment: string }) => {
+      const res = await fetch(`/api/service-requests/${requestId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating, comment }),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message ?? "Failed to submit review");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/service-requests/${requestId}/review`] });
+      toast({ title: "Review submitted!", description: "Thank you for your feedback." });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
 
   if (isLoading || quotesLoading) {
     return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
@@ -218,6 +256,53 @@ export default function RequestDetails() {
                     <div className="flex items-center justify-center gap-2 text-green-600 font-medium py-3" data-testid="text-payment-complete">
                       <CheckCircle className="w-5 h-5" /> Payment Complete
                     </div>
+                  </div>
+                )}
+
+                {isOwner && request.status === "completed" && invoice?.status === "paid" && (
+                  <div className="pt-4 border-t">
+                    {existingReview ? (
+                      <div className="bg-muted/50 rounded-md p-4">
+                        <div className="text-sm font-semibold mb-1">Your Review</div>
+                        <div className="flex gap-1 mb-2">
+                          {[1,2,3,4,5].map(s => (
+                            <Star key={s} className={`w-5 h-5 ${s <= existingReview.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
+                          ))}
+                        </div>
+                        {existingReview.comment && <p className="text-sm text-muted-foreground">{existingReview.comment}</p>}
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="text-sm font-semibold mb-3">Leave a Review</div>
+                        <div className="flex gap-1 mb-3">
+                          {[1,2,3,4,5].map(s => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => setReviewRating(s)}
+                              onMouseEnter={() => setHoverRating(s)}
+                              onMouseLeave={() => setHoverRating(0)}
+                            >
+                              <Star className={`w-7 h-7 transition-colors ${s <= (hoverRating || reviewRating) ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} />
+                            </button>
+                          ))}
+                        </div>
+                        <Textarea
+                          placeholder="Share your experience (optional)..."
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
+                          className="mb-3 min-h-[80px]"
+                        />
+                        <Button
+                          onClick={() => submitReview({ rating: reviewRating, comment: reviewComment })}
+                          disabled={reviewRating === 0 || isSubmittingReview}
+                          className="w-full"
+                        >
+                          {isSubmittingReview ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Star className="w-4 h-4 mr-2" />}
+                          Submit Review
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>

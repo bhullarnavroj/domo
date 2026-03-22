@@ -79,6 +79,16 @@ export const refundLogs = pgTable("refund_logs", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const reviews = pgTable("reviews", {
+  id: serial("id").primaryKey(),
+  serviceRequestId: integer("service_request_id").notNull().references(() => serviceRequests.id),
+  contractorId: text("contractor_id").notNull().references(() => authUsers.id),
+  homeownerId: text("homeowner_id").notNull().references(() => authUsers.id),
+  rating: integer("rating").notNull(), // 1-5
+  comment: text("comment"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const messages = pgTable("messages", {
   id: serial("id").primaryKey(),
   serviceRequestId: integer("service_request_id").notNull().references(() => serviceRequests.id),
@@ -98,6 +108,10 @@ export const insertServiceRequestSchema = createInsertSchema(serviceRequests).om
 export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, createdAt: true, contractorId: true, status: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, status: true });
 export const insertMessageSchema = createInsertSchema(messages).omit({ id: true, createdAt: true, senderId: true, senderName: true, senderRole: true, serviceRequestId: true });
+export const insertReviewSchema = createInsertSchema(reviews, {
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().max(1000).optional().nullable(),
+}).omit({ id: true, createdAt: true, homeownerId: true });
 
 // === TYPES ===
 
@@ -116,6 +130,9 @@ export type RefundLog = typeof refundLogs.$inferSelect;
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
+
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = z.infer<typeof insertReviewSchema>;
 
 // Request Types
 export type CreateProfileRequest = InsertProfile;

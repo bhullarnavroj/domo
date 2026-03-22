@@ -1,5 +1,5 @@
-import { 
-  users, profiles, serviceRequests, quotes, invoices, messages, refundLogs,
+import {
+  users, profiles, serviceRequests, quotes, invoices, messages, refundLogs, reviews,
   type User, type InsertUser,
   type Profile, type InsertProfile, type UpdateProfileRequest,
   type ServiceRequest, type InsertServiceRequest, type UpdateServiceRequestRequest,
@@ -7,9 +7,10 @@ import {
   type Invoice,
   type RefundLog,
   type Message,
+  type Review, type InsertReview,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, ilike, or } from "drizzle-orm";
 
 export type AdminUser = User & { profile: Profile | null };
 export type AdminServiceRequest = ServiceRequest & { homeownerName: string | null };
@@ -28,7 +29,7 @@ export interface IStorage {
 
   // Service Requests
   getServiceRequest(id: number): Promise<ServiceRequest | undefined>;
-  getServiceRequests(filters?: { category?: string; status?: string }): Promise<ServiceRequest[]>;
+  getServiceRequests(filters?: { category?: string; status?: string; search?: string; limit?: number; offset?: number }): Promise<{ data: ServiceRequest[]; total: number }>;
   createServiceRequest(request: InsertServiceRequest): Promise<ServiceRequest>;
   updateServiceRequest(id: number, request: UpdateServiceRequestRequest): Promise<ServiceRequest>;
   
@@ -50,6 +51,12 @@ export interface IStorage {
   getInvoicesByUser(userId: string, role: "homeowner" | "contractor"): Promise<Invoice[]>;
   createInvoice(invoice: Omit<Invoice, "id" | "createdAt" | "status" | "commissionRate" | "description" | "baseAmount" | "gstAmount" | "pstAmount" | "taxRegion"> & { commissionRate?: number | null; description?: string | null; baseAmount?: number | null; gstAmount?: number | null; pstAmount?: number | null; taxRegion?: string | null }): Promise<Invoice>;
   updateInvoiceStatus(id: number, status: "pending" | "paid" | "failed" | "refunded" | "partially_refunded", stripePaymentIntentId?: string): Promise<Invoice>;
+
+  // Reviews
+  createReview(review: InsertReview & { homeownerId: string }): Promise<Review>;
+  getReviewsByContractor(contractorId: string): Promise<Review[]>;
+  getReviewByRequest(serviceRequestId: number): Promise<Review | undefined>;
+  getContractorRating(contractorId: string): Promise<{ average: number; count: number }>;
 
   // Refund Logs
   createRefundLog(log: Omit<RefundLog, "id" | "createdAt">): Promise<RefundLog>;
@@ -109,21 +116,34 @@ export class DatabaseStorage implements IStorage {
     return request;
   }
 
-  async getServiceRequests(filters?: { category?: string; status?: string }): Promise<ServiceRequest[]> {
-    let query = db.select().from(serviceRequests).orderBy(desc(serviceRequests.createdAt));
-    
-    if (filters) {
-      const conditions = [];
-      if (filters.category) conditions.push(eq(serviceRequests.category, filters.category));
-      if (filters.status) conditions.push(eq(serviceRequests.status, filters.status));
-      
-      if (conditions.length > 0) {
-        // @ts-ignore - AND logic is complex to type perfectly with dynamic array
-        return await query.where(and(...conditions));
-      }
+  async getServiceRequests(filters?: { category?: string; status?: string; search?: string; limit?: number; offset?: number }): Promise<{ data: ServiceRequest[]; total: number }> {
+    const conditions = [];
+    if (filters?.category) conditions.push(eq(serviceRequests.category, filters.category));
+    if (filters?.status) conditions.push(eq(serviceRequests.status, filters.status as "open" | "in_progress" | "completed" | "cancelled"));
+    if (filters?.search) {
+      conditions.push(
+        or(
+          ilike(serviceRequests.title, `%${filters.search}%`),
+          ilike(serviceRequests.description, `%${filters.search}%`),
+          ilike(serviceRequests.location, `%${filters.search}%`)
+        )!
+      );
     }
-    
-    return await query;
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const limit = Math.min(filters?.limit ?? 20, 100);
+    const offset = filters?.offset ?? 0;
+
+    const [data, countResult] = await Promise.all([
+      db.select().from(serviceRequests)
+        .where(whereClause)
+        .orderBy(desc(serviceRequests.createdAt))
+        .limit(limit)
+        .offset(offset),
+      db.select({ count: sql<number>`count(*)::int` }).from(serviceRequests).where(whereClause),
+    ]);
+
+    return { data, total: countResult[0]?.count ?? 0 };
   }
 
   async createServiceRequest(request: InsertServiceRequest): Promise<ServiceRequest> {
@@ -275,6 +295,35 @@ export class DatabaseStorage implements IStorage {
   async rejectContractor(userId: string): Promise<Profile> {
     const [updated] = await db.update(profiles).set({ isVerified: false }).where(eq(profiles.userId, userId)).returning();
     return updated;
+  }
+
+  // Review Operations
+  async createReview(review: InsertReview & { homeownerId: string }): Promise<Review> {
+    const [newReview] = await db.insert(reviews).values(review).returning();
+    return newReview;
+  }
+
+  async getReviewsByContractor(contractorId: string): Promise<Review[]> {
+    return await db.select().from(reviews)
+      .where(eq(reviews.contractorId, contractorId))
+      .orderBy(desc(reviews.createdAt));
+  }
+
+  async getReviewByRequest(serviceRequestId: number): Promise<Review | undefined> {
+    const [review] = await db.select().from(reviews)
+      .where(eq(reviews.serviceRequestId, serviceRequestId));
+    return review;
+  }
+
+  async getContractorRating(contractorId: string): Promise<{ average: number; count: number }> {
+    const [result] = await db
+      .select({
+        average: sql<number>`COALESCE(AVG(${reviews.rating}), 0)::numeric(3,1)`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(reviews)
+      .where(eq(reviews.contractorId, contractorId));
+    return { average: Number(result?.average ?? 0), count: result?.count ?? 0 };
   }
 
   // Refund Log Operations

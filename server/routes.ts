@@ -94,16 +94,21 @@ export async function registerRoutes(
 
   // === SERVICE REQUESTS ===
 
-  app.get(api.serviceRequests.list.path, async (req, res) => {
+  app.get(api.serviceRequests.list.path, isAuthenticated, async (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 20, 100);
+    const offset = Number(req.query.offset) || 0;
     const filters = {
-      category: req.query.category as string,
-      status: req.query.status as string
+      category: req.query.category as string | undefined,
+      status: req.query.status as string | undefined,
+      search: req.query.search as string | undefined,
+      limit,
+      offset,
     };
-    const requests = await storage.getServiceRequests(filters);
-    res.json(requests);
+    const result = await storage.getServiceRequests(filters);
+    res.json(result);
   });
 
-  app.get(api.serviceRequests.get.path, async (req, res) => {
+  app.get(api.serviceRequests.get.path, isAuthenticated, async (req, res) => {
     const request = await storage.getServiceRequest(Number(req.params.id));
     if (!request) {
       return res.status(404).json({ message: "Service request not found" });
@@ -229,7 +234,7 @@ export async function registerRoutes(
 
   // === QUOTES ===
 
-  app.get(api.quotes.listByRequest.path, async (req, res) => {
+  app.get(api.quotes.listByRequest.path, isAuthenticated, async (req, res) => {
     const requestId = Number(req.params.requestId);
     const quotes = await storage.getQuotesByRequest(requestId);
     
@@ -319,6 +324,65 @@ export async function registerRoutes(
     await storage.updateServiceRequest(request.id, { status: "in_progress" });
 
     res.json(acceptedQuote);
+  });
+
+  // === REVIEWS ===
+
+  // Get reviews for a contractor (public — shows their rating on profile)
+  app.get("/api/contractors/:contractorId/reviews", isAuthenticated, async (req, res) => {
+    const { contractorId } = req.params;
+    const [reviewsList, rating] = await Promise.all([
+      storage.getReviewsByContractor(contractorId),
+      storage.getContractorRating(contractorId),
+    ]);
+    res.json({ reviews: reviewsList, rating });
+  });
+
+  // Get review for a specific service request
+  app.get("/api/service-requests/:requestId/review", isAuthenticated, async (req: any, res) => {
+    const requestId = Number(req.params.requestId);
+    const review = await storage.getReviewByRequest(requestId);
+    res.json(review ?? null);
+  });
+
+  // Submit a review (homeowner only, after job is completed)
+  app.post("/api/service-requests/:requestId/review", isAuthenticated, async (req: any, res) => {
+    try {
+      const requestId = Number(req.params.requestId);
+      const userId = req.user.claims.sub;
+
+      const request = await storage.getServiceRequest(requestId);
+      if (!request) return res.status(404).json({ message: "Service request not found" });
+      if (request.homeownerId !== userId) return res.status(403).json({ message: "Only the homeowner can leave a review" });
+      if (request.status !== "completed") return res.status(400).json({ message: "Job must be completed before leaving a review" });
+
+      const existing = await storage.getReviewByRequest(requestId);
+      if (existing) return res.status(400).json({ message: "A review already exists for this job" });
+
+      const quotesForRequest = await storage.getQuotesByRequest(requestId);
+      const acceptedQuote = quotesForRequest.find(q => q.status === "accepted");
+      if (!acceptedQuote) return res.status(400).json({ message: "No accepted contractor found for this job" });
+
+      const { rating, comment } = req.body;
+      if (!rating || typeof rating !== "number" || rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      }
+
+      const review = await storage.createReview({
+        serviceRequestId: requestId,
+        contractorId: acceptedQuote.contractorId,
+        homeownerId: userId,
+        rating,
+        comment: comment ?? null,
+      });
+
+      res.status(201).json(review);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
   });
 
   // === MESSAGES ===
