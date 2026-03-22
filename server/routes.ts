@@ -6,8 +6,10 @@ import { z } from "zod";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { stripeService } from "./stripeService";
+import { getUncachableStripeClient } from "./stripeClient";
 import { calculateCommission, getCommissionRate } from "@shared/commission";
 import { calculateTax } from "@shared/tax";
+import type Stripe from "stripe";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -495,6 +497,83 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Stripe Checkout Error:", error);
       res.status(500).json({ message: "Failed to create payment session" });
+    }
+  });
+
+  // === STRIPE WEBHOOK ===
+
+  app.post("/api/stripe/webhook", async (req: any, res) => {
+    const sig = req.headers["stripe-signature"] as string;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    if (!webhookSecret) {
+      console.error("STRIPE_WEBHOOK_SECRET is not configured");
+      return res.status(500).json({ message: "Webhook secret not configured" });
+    }
+
+    const rawBody = req.rawBody as Buffer;
+    if (!rawBody || !Buffer.isBuffer(rawBody)) {
+      return res.status(400).json({ message: "Missing or invalid raw body" });
+    }
+
+    let event: Stripe.Event;
+    try {
+      const stripe = await getUncachableStripeClient();
+      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    } catch (err: any) {
+      console.error("Webhook signature verification failed:", err.message);
+      return res.status(400).json({ message: `Webhook error: ${err.message}` });
+    }
+
+    try {
+      switch (event.type) {
+        case "checkout.session.completed": {
+          const session = event.data.object as Stripe.Checkout.Session;
+          const invoiceId = session.metadata?.invoiceId;
+          if (!invoiceId) {
+            console.warn("checkout.session.completed: no invoiceId in metadata");
+            break;
+          }
+          if (session.payment_status === "paid") {
+            await storage.updateInvoiceStatus(
+              Number(invoiceId),
+              "paid",
+              session.payment_intent as string
+            );
+            console.log(`Invoice ${invoiceId} marked as paid via webhook`);
+          }
+          break;
+        }
+
+        case "payment_intent.payment_failed": {
+          const paymentIntent = event.data.object as Stripe.PaymentIntent;
+          // Look up the checkout session associated with this payment intent
+          // to retrieve our invoiceId from session metadata
+          const stripe = await getUncachableStripeClient();
+          const sessions = await stripe.checkout.sessions.list({
+            payment_intent: paymentIntent.id,
+            limit: 1,
+          });
+          const session = sessions.data[0];
+          const invoiceId = session?.metadata?.invoiceId;
+          if (!invoiceId) {
+            console.warn("payment_intent.payment_failed: could not resolve invoiceId");
+            break;
+          }
+          await storage.updateInvoiceStatus(Number(invoiceId), "failed");
+          console.log(`Invoice ${invoiceId} marked as failed via webhook`);
+          break;
+        }
+
+        default:
+          // Ignore unhandled event types
+          break;
+      }
+
+      res.json({ received: true });
+    } catch (err: any) {
+      console.error("Webhook handler error:", err);
+      res.status(500).json({ message: "Webhook processing failed" });
     }
   });
 

@@ -40,7 +40,7 @@ export interface IStorage {
   getInvoice(id: number): Promise<Invoice | undefined>;
   getInvoicesByUser(userId: string, role: "homeowner" | "contractor"): Promise<Invoice[]>;
   createInvoice(invoice: Omit<Invoice, "id" | "createdAt" | "status" | "commissionRate" | "description" | "baseAmount" | "gstAmount" | "pstAmount" | "taxRegion"> & { commissionRate?: number | null; description?: string | null; baseAmount?: number | null; gstAmount?: number | null; pstAmount?: number | null; taxRegion?: string | null }): Promise<Invoice>;
-  updateInvoiceStatus(id: number, status: "pending" | "paid", stripePaymentIntentId?: string): Promise<Invoice>;
+  updateInvoiceStatus(id: number, status: "pending" | "paid" | "failed", stripePaymentIntentId?: string): Promise<Invoice>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -172,7 +172,7 @@ export class DatabaseStorage implements IStorage {
     return newInvoice;
   }
 
-  async updateInvoiceStatus(id: number, status: "pending" | "paid", stripePaymentIntentId?: string): Promise<Invoice> {
+  async updateInvoiceStatus(id: number, status: "pending" | "paid" | "failed", stripePaymentIntentId?: string): Promise<Invoice> {
     const updates: Partial<Invoice> = { status };
     if (stripePaymentIntentId) {
       updates.stripePaymentIntentId = stripePaymentIntentId;

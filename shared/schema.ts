@@ -63,7 +63,7 @@ export const invoices = pgTable("invoices", {
   commissionAmount: integer("commission_amount").notNull(),
   commissionRate: integer("commission_rate"),
   description: text("description"),
-  status: text("status", { enum: ["pending", "paid"] }).default("pending").notNull(),
+  status: text("status", { enum: ["pending", "paid", "failed"] }).default("pending").notNull(),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
