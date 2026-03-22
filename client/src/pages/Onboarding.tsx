@@ -20,13 +20,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useLocation } from "wouter";
 import { Briefcase, Home, Loader2 } from "lucide-react";
 
-const SERVICE_CATEGORIES = [
-  "Plumbing", "Electrical", "Carpentry", "Painting", "HVAC", "Roofing", "General Repair",
-  "Landscaping", "Cleaning", "Pest Control", "Moving", "Interior Design",
-  "Real Estate Law", "Property Law", "Notary", "Tax Services", "Insurance",
-  "Real Estate Agent", "Property Manager", "Home Inspector", "Appraiser",
-  "Photography", "Videography", "Virtual Tour", "Other",
-];
+import { CATEGORIES } from "@shared/categories";
 
 export default function Onboarding() {
   const { user } = useAuth();
@@ -164,24 +158,33 @@ export default function Onboarding() {
                     name="skills"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Services You Offer</FormLabel>
-                        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
-                          {SERVICE_CATEGORIES.map((cat) => (
-                            <div key={cat} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`skill-${cat}`}
-                                checked={(field.value as string[]).includes(cat)}
-                                onCheckedChange={(checked) => {
+                        <FormLabel>Which trades do you offer?</FormLabel>
+                        <div className="grid grid-cols-3 gap-3 mt-1">
+                          {CATEGORIES.map((cat) => {
+                            const selected = (field.value as string[]).includes(cat.label);
+                            return (
+                              <button
+                                key={cat.value}
+                                type="button"
+                                onClick={() => {
                                   const current = field.value as string[];
                                   field.onChange(
-                                    checked ? [...current, cat] : current.filter((s) => s !== cat)
+                                    selected ? current.filter((s) => s !== cat.label) : [...current, cat.label]
                                   );
                                 }}
-                              />
-                              <label htmlFor={`skill-${cat}`} className="text-sm cursor-pointer">{cat}</label>
-                            </div>
-                          ))}
+                                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-center ${
+                                  selected
+                                    ? "border-primary bg-primary/5 text-primary"
+                                    : "border-border hover:border-primary/40"
+                                }`}
+                              >
+                                <span className="text-2xl">{cat.emoji}</span>
+                                <span className="text-xs font-semibold">{cat.label}</span>
+                              </button>
+                            );
+                          })}
                         </div>
+                        <p className="text-xs text-muted-foreground mt-2">Select all that apply. More categories coming soon.</p>
                         <FormMessage />
                       </FormItem>
                     )}

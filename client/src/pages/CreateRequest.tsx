@@ -14,15 +14,7 @@ import { ObjectUploader } from "@/components/ObjectUploader";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { PROVINCE_LIST } from "@shared/tax";
-
-const categories = [
-  { group: "Home & Repair", items: ["Plumbing", "Electrical", "Carpentry", "Painting", "HVAC", "Roofing", "General Repair"] },
-  { group: "Property Services", items: ["Landscaping", "Cleaning", "Pest Control", "Moving", "Interior Design"] },
-  { group: "Legal & Financial", items: ["Real Estate Law", "Property Law", "Notary", "Tax Services", "Insurance"] },
-  { group: "Real Estate", items: ["Real Estate Agent", "Property Manager", "Home Inspector", "Appraiser"] },
-  { group: "Creative & Media", items: ["Photography", "Videography", "Virtual Tour"] },
-  { group: "Other", items: ["Other"] },
-];
+import { CATEGORIES } from "@shared/categories";
 
 export default function CreateRequest() {
   const { mutate: createRequest, isPending } = useCreateServiceRequest();
@@ -57,50 +49,114 @@ export default function CreateRequest() {
   return (
     <div className="min-h-screen bg-muted/30">
       <Navigation />
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="container mx-auto px-4 py-10 max-w-2xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-display font-bold text-foreground">Post a Service Request</h1>
-          <p className="text-muted-foreground mt-1">Describe what you need and get quotes from local professionals.</p>
+          <h1 className="text-3xl font-display font-bold">Post a Job</h1>
+          <p className="text-muted-foreground mt-1">Fill in the details below and get quotes from verified local tradespeople.</p>
         </div>
 
-        <div className="bg-card p-6 md:p-8 rounded-md shadow-sm border border-border/60">
+        <div className="bg-card p-6 md:p-8 rounded-2xl shadow-sm border border-border/60 space-y-8">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-7">
+
+              {/* Category — visual cards */}
               <FormField
                 control={form.control}
-                name="title"
+                name="category"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Request Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., Need a property photographer for listing" {...field} data-testid="input-title" />
-                    </FormControl>
+                    <FormLabel className="text-base font-semibold">What type of job is this?</FormLabel>
+                    <div className="grid grid-cols-3 gap-3 mt-2">
+                      {CATEGORIES.map((cat) => (
+                        <button
+                          key={cat.value}
+                          type="button"
+                          onClick={() => field.onChange(cat.value)}
+                          className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all text-center ${
+                            field.value === cat.value
+                              ? "border-primary bg-primary/5 text-primary"
+                              : "border-border hover:border-primary/40 hover:bg-muted/50"
+                          }`}
+                          data-testid={`select-category-${cat.value}`}
+                        >
+                          <span className="text-3xl">{cat.emoji}</span>
+                          <span className="text-sm font-semibold">{cat.label}</span>
+                        </button>
+                      ))}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <div className="grid md:grid-cols-2 gap-6">
+              {/* Title */}
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-base font-semibold">Job title</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Fix leaky kitchen faucet" className="h-11 rounded-xl" {...field} data-testid="input-title" />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground mt-1">Keep it short and specific — pros respond faster to clear titles.</p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Description */}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-base font-semibold">Describe the job</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="e.g., The kitchen faucet has been dripping for 2 weeks. It's a single-handle Moen. Need it fixed or replaced. Happy to discuss budget."
+                        className="min-h-[130px] rounded-xl"
+                        {...field}
+                        data-testid="input-description"
+                      />
+                    </FormControl>
+                    <p className="text-xs text-muted-foreground mt-1">More detail = better quotes. Include timeline, access notes, or budget if you have one.</p>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Location + Province */}
+              <div className="grid md:grid-cols-2 gap-5">
                 <FormField
                   control={form.control}
-                  name="category"
+                  name="location"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Category</FormLabel>
+                      <FormLabel className="text-base font-semibold">Location</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., North Delta, BC" className="h-11 rounded-xl" {...field} data-testid="input-location" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="province"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-base font-semibold">Province</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger data-testid="select-category">
-                            <SelectValue placeholder="Select a category" />
+                          <SelectTrigger className="h-11 rounded-xl" data-testid="select-province">
+                            <SelectValue placeholder="Select province" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {categories.map((group) => (
-                            <div key={group.group}>
-                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.group}</div>
-                              {group.items.map((cat) => (
-                                <SelectItem key={cat} value={cat.toLowerCase()}>{cat}</SelectItem>
-                              ))}
-                            </div>
+                          {PROVINCE_LIST.map((p) => (
+                            <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -108,66 +164,14 @@ export default function CreateRequest() {
                     </FormItem>
                   )}
                 />
-
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="City, Neighbourhood" {...field} data-testid="input-location" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
 
-              <FormField
-                control={form.control}
-                name="province"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Province / Territory</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger data-testid="select-province">
-                          <SelectValue placeholder="Select province" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {PROVINCE_LIST.map((p) => (
-                          <SelectItem key={p.code} value={p.code}>{p.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Describe what you need in detail. Include any relevant information such as timeline, budget range, or special requirements." 
-                        className="min-h-[120px]" 
-                        {...field}
-                        data-testid="input-description"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+              {/* Photos */}
               <div className="space-y-3">
-                <FormLabel>Photos (optional)</FormLabel>
+                <div>
+                  <div className="text-base font-semibold">Photos <span className="text-muted-foreground font-normal text-sm">(optional)</span></div>
+                  <p className="text-xs text-muted-foreground mt-0.5">Jobs with photos get 3× more quotes. Add up to 5 images.</p>
+                </div>
                 <div className="flex flex-wrap gap-4">
                   {photos.map((url, i) => (
                     <img key={i} src={url} alt="Upload" className="w-24 h-24 object-cover rounded-md border" />
@@ -207,10 +211,10 @@ export default function CreateRequest() {
                 </div>
               </div>
 
-              <div className="flex gap-4 pt-4">
-                <Button type="button" variant="outline" className="w-full" onClick={() => setLocation("/dashboard")} data-testid="button-cancel">Cancel</Button>
-                <Button type="submit" className="w-full" disabled={isPending} data-testid="button-submit-request">
-                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Post Request"}
+              <div className="flex gap-3 pt-2">
+                <Button type="button" variant="outline" className="w-full rounded-xl h-11" onClick={() => setLocation("/dashboard")} data-testid="button-cancel">Cancel</Button>
+                <Button type="submit" className="w-full rounded-xl h-11 text-base font-semibold" disabled={isPending} data-testid="button-submit-request">
+                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Post Job →"}
                 </Button>
               </div>
             </form>
