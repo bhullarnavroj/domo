@@ -10,6 +10,7 @@ import { getUncachableStripeClient } from "./stripeClient";
 import { calculateCommission, getCommissionRate } from "@shared/commission";
 import { calculateTax } from "@shared/tax";
 import type Stripe from "stripe";
+import { notifyContractorsNewJob, notifyCustomerNewQuote, notifyPaymentConfirmed } from "./emailService";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -134,6 +135,27 @@ export async function registerRoutes(
 
       const request = await storage.createServiceRequest({ ...input, homeownerId: userId });
       res.status(201).json(request);
+
+      // Fire contractor notifications in background (non-blocking)
+      (async () => {
+        try {
+          const contractors = await storage.getContractorsByCategory(request.category);
+          const contractorsWithEmail = await Promise.all(
+            contractors.map(async (c) => {
+              const user = await storage.getUser(c.userId);
+              return { email: user?.email, name: c.businessName || user?.firstName || "Contractor" };
+            })
+          );
+          await notifyContractorsNewJob(contractorsWithEmail, {
+            id: request.id,
+            title: request.title,
+            category: request.category,
+            location: request.location,
+          });
+        } catch (err) {
+          console.error("Failed to send contractor notifications:", err);
+        }
+      })();
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
@@ -243,6 +265,27 @@ export async function registerRoutes(
         contractorId: userId,
       });
       res.status(201).json(quote);
+
+      // Notify homeowner in background (non-blocking)
+      (async () => {
+        try {
+          const homeownerUser = await storage.getUser(request.homeownerId);
+          if (homeownerUser?.email) {
+            const contractorProfile = await storage.getProfile(userId);
+            const contractorUser = await storage.getUser(userId);
+            const contractorName = contractorProfile?.businessName || contractorUser?.firstName || "A contractor";
+            await notifyCustomerNewQuote(
+              homeownerUser.email,
+              homeownerUser.firstName || "Homeowner",
+              { id: request.id, title: request.title },
+              contractorName,
+              quote.amount
+            );
+          }
+        } catch (err) {
+          console.error("Failed to send homeowner quote notification:", err);
+        }
+      })();
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
@@ -462,6 +505,29 @@ export async function registerRoutes(
 
       const updated = await storage.updateInvoiceStatus(invoiceId, "paid", session.payment_intent as string);
       res.json(updated);
+
+      // Send payment confirmation emails in background (non-blocking)
+      (async () => {
+        try {
+          const paidInvoice = updated;
+          const serviceRequest = await storage.getServiceRequest(paidInvoice.serviceRequestId);
+          const homeownerUser = await storage.getUser(paidInvoice.homeownerId);
+          const contractorUser = await storage.getUser(paidInvoice.contractorId);
+          const contractorProfile = await storage.getProfile(paidInvoice.contractorId);
+          if (homeownerUser?.email && serviceRequest) {
+            await notifyPaymentConfirmed(
+              homeownerUser.email,
+              homeownerUser.firstName || "Homeowner",
+              contractorUser?.email,
+              contractorProfile?.businessName || contractorUser?.firstName || "Contractor",
+              { id: serviceRequest.id, title: serviceRequest.title },
+              paidInvoice.amount
+            );
+          }
+        } catch (err) {
+          console.error("Failed to send payment confirmation emails:", err);
+        }
+      })();
     } catch (error: any) {
       console.error("Payment verification error:", error);
       return res.status(400).json({ message: "Could not verify payment" });
@@ -600,12 +666,41 @@ export async function registerRoutes(
             break;
           }
           if (session.payment_status === "paid") {
-            await storage.updateInvoiceStatus(
+            // Idempotency guard: skip update + notification if already paid
+            const existingInvoice = await storage.getInvoice(Number(invoiceId));
+            if (existingInvoice?.status === "paid") {
+              console.log(`Invoice ${invoiceId} already paid, skipping webhook update`);
+              break;
+            }
+
+            const paidInvoice = await storage.updateInvoiceStatus(
               Number(invoiceId),
               "paid",
               session.payment_intent as string
             );
             console.log(`Invoice ${invoiceId} marked as paid via webhook`);
+
+            // Send payment confirmation emails in background (non-blocking)
+            (async () => {
+              try {
+                const serviceRequest = await storage.getServiceRequest(paidInvoice.serviceRequestId);
+                const homeownerUser = await storage.getUser(paidInvoice.homeownerId);
+                const contractorUser = await storage.getUser(paidInvoice.contractorId);
+                const contractorProfile = await storage.getProfile(paidInvoice.contractorId);
+                if (homeownerUser?.email && serviceRequest) {
+                  await notifyPaymentConfirmed(
+                    homeownerUser.email,
+                    homeownerUser.firstName || "Homeowner",
+                    contractorUser?.email,
+                    contractorProfile?.businessName || contractorUser?.firstName || "Contractor",
+                    { id: serviceRequest.id, title: serviceRequest.title },
+                    paidInvoice.amount
+                  );
+                }
+              } catch (err) {
+                console.error("Failed to send webhook payment confirmation emails:", err);
+              }
+            })();
           }
           break;
         }

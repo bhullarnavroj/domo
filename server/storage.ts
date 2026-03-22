@@ -8,7 +8,7 @@ import {
   type Message,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 export type AdminUser = User & { profile: Profile | null };
 export type AdminServiceRequest = ServiceRequest & { homeownerName: string | null };
@@ -40,6 +40,9 @@ export interface IStorage {
   // Messages
   getMessagesByRequest(requestId: number): Promise<Message[]>;
   createMessage(message: Omit<Message, "id" | "createdAt">): Promise<Message>;
+
+  // Contractors
+  getContractorsByCategory(category: string): Promise<Array<{ userId: string; businessName: string | null }>>;
 
   // Invoices
   getInvoice(id: number): Promise<Invoice | undefined>;
@@ -166,6 +169,19 @@ export class DatabaseStorage implements IStorage {
   async createMessage(message: Omit<Message, "id" | "createdAt">): Promise<Message> {
     const [newMessage] = await db.insert(messages).values(message).returning();
     return newMessage;
+  }
+
+  // Contractor lookup by category (skills array match)
+  async getContractorsByCategory(category: string): Promise<Array<{ userId: string; businessName: string | null }>> {
+    return await db
+      .select({ userId: profiles.userId, businessName: profiles.businessName })
+      .from(profiles)
+      .where(
+        and(
+          eq(profiles.role, "contractor"),
+          sql`${category} = ANY(${profiles.skills})`
+        )
+      );
   }
 
   // Invoice Operations
