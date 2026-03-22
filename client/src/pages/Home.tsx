@@ -50,10 +50,10 @@ export default function Home() {
               </Link>
             ) : (
               <>
-                <Button size="lg" data-testid="button-find-professional" onClick={() => window.location.href = "/api/login"}>
+                <Button size="lg" data-testid="button-find-professional" onClick={() => { localStorage.setItem("intended_role", "homeowner"); window.location.href = "/api/login"; }}>
                   Find a Professional
                 </Button>
-                <Button size="lg" variant="outline" data-testid="button-join-pro" onClick={() => window.location.href = "/api/login"}>
+                <Button size="lg" variant="outline" data-testid="button-join-pro" onClick={() => { localStorage.setItem("intended_role", "contractor"); window.location.href = "/api/login"; }}>
                   Join as a Pro
                 </Button>
               </>

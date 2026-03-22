@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -19,26 +20,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useLocation } from "wouter";
 import { Briefcase, Home, Loader2 } from "lucide-react";
 
+const SERVICE_CATEGORIES = [
+  "Plumbing", "Electrical", "Carpentry", "Painting", "HVAC", "Roofing", "General Repair",
+  "Landscaping", "Cleaning", "Pest Control", "Moving", "Interior Design",
+  "Real Estate Law", "Property Law", "Notary", "Tax Services", "Insurance",
+  "Real Estate Agent", "Property Manager", "Home Inspector", "Appraiser",
+  "Photography", "Videography", "Virtual Tour", "Other",
+];
+
 export default function Onboarding() {
   const { user } = useAuth();
   const { mutate: createProfile, isPending } = useCreateProfile();
   const [, setLocation] = useLocation();
 
+  const intendedRole = (localStorage.getItem("intended_role") as "homeowner" | "contractor") || "homeowner";
+
   const form = useForm({
     resolver: zodResolver(insertProfileSchema),
     defaultValues: {
-      role: "homeowner",
+      role: intendedRole,
       businessName: "",
       description: "",
       phoneNumber: "",
       address: "",
-      skills: [],
+      skills: [] as string[],
     },
   });
 
   const role = form.watch("role");
 
   const onSubmit = (data: any) => {
+    localStorage.removeItem("intended_role");
     createProfile(data, {
       onSuccess: () => setLocation("/dashboard"),
     });
@@ -143,6 +155,33 @@ export default function Onboarding() {
                         <FormControl>
                           <Textarea placeholder="Tell us about the services you offer..." {...field} data-testid="input-description" />
                         </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="skills"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Services You Offer</FormLabel>
+                        <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                          {SERVICE_CATEGORIES.map((cat) => (
+                            <div key={cat} className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`skill-${cat}`}
+                                checked={(field.value as string[]).includes(cat)}
+                                onCheckedChange={(checked) => {
+                                  const current = field.value as string[];
+                                  field.onChange(
+                                    checked ? [...current, cat] : current.filter((s) => s !== cat)
+                                  );
+                                }}
+                              />
+                              <label htmlFor={`skill-${cat}`} className="text-sm cursor-pointer">{cat}</label>
+                            </div>
+                          ))}
+                        </div>
                         <FormMessage />
                       </FormItem>
                     )}

@@ -91,7 +91,9 @@ export const messages = pgTable("messages", {
 
 // === SCHEMAS ===
 
-export const insertProfileSchema = createInsertSchema(profiles).omit({ id: true, createdAt: true, userId: true, isSuspended: true, isVerified: true });
+export const insertProfileSchema = createInsertSchema(profiles, {
+  phoneNumber: z.string().regex(/^\+?[\d\s\-().]{7,20}$/, "Please enter a valid phone number").optional().nullable(),
+}).omit({ id: true, createdAt: true, userId: true, isSuspended: true, isVerified: true });
 export const insertServiceRequestSchema = createInsertSchema(serviceRequests).omit({ id: true, createdAt: true, homeownerId: true, status: true });
 export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, createdAt: true, contractorId: true, status: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, status: true });
