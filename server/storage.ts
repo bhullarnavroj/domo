@@ -29,7 +29,7 @@ export interface IStorage {
 
   // Service Requests
   getServiceRequest(id: number): Promise<ServiceRequest | undefined>;
-  getServiceRequests(filters?: { category?: string; status?: string; search?: string; limit?: number; offset?: number }): Promise<{ data: ServiceRequest[]; total: number }>;
+  getServiceRequests(filters?: { category?: string; status?: string; search?: string; homeownerId?: string; limit?: number; offset?: number }): Promise<{ data: ServiceRequest[]; total: number }>;
   createServiceRequest(request: InsertServiceRequest): Promise<ServiceRequest>;
   updateServiceRequest(id: number, request: UpdateServiceRequestRequest): Promise<ServiceRequest>;
   
@@ -116,10 +116,11 @@ export class DatabaseStorage implements IStorage {
     return request;
   }
 
-  async getServiceRequests(filters?: { category?: string; status?: string; search?: string; limit?: number; offset?: number }): Promise<{ data: ServiceRequest[]; total: number }> {
+  async getServiceRequests(filters?: { category?: string; status?: string; search?: string; homeownerId?: string; limit?: number; offset?: number }): Promise<{ data: ServiceRequest[]; total: number }> {
     const conditions = [];
     if (filters?.category) conditions.push(eq(serviceRequests.category, filters.category));
     if (filters?.status) conditions.push(eq(serviceRequests.status, filters.status as "open" | "in_progress" | "completed" | "cancelled"));
+    if (filters?.homeownerId) conditions.push(eq(serviceRequests.homeownerId, filters.homeownerId));
     if (filters?.search) {
       conditions.push(
         or(

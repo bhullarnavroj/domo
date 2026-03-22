@@ -94,13 +94,17 @@ export async function registerRoutes(
 
   // === SERVICE REQUESTS ===
 
-  app.get(api.serviceRequests.list.path, isAuthenticated, async (req, res) => {
+  app.get(api.serviceRequests.list.path, isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const profile = await storage.getProfile(userId);
     const limit = Math.min(Number(req.query.limit) || 20, 100);
     const offset = Number(req.query.offset) || 0;
     const filters = {
       category: req.query.category as string | undefined,
       status: req.query.status as string | undefined,
       search: req.query.search as string | undefined,
+      // Homeowners only see their own requests; contractors see all open requests
+      homeownerId: profile?.role === "homeowner" ? userId : undefined,
       limit,
       offset,
     };
@@ -257,14 +261,37 @@ export async function registerRoutes(
       if (profile?.role !== 'contractor') {
         return res.status(403).json({ message: "Only contractors can submit quotes" });
       }
+      if (!profile.isVerified) {
+        return res.status(403).json({ message: "Your account is pending approval. You'll be notified once approved." });
+      }
+      if (profile.isSuspended) {
+        return res.status(403).json({ message: "Your account has been suspended." });
+      }
 
       // Check if request is open
       const request = await storage.getServiceRequest(requestId);
       if (!request || request.status !== 'open') {
-        return res.status(400).json({ message: "Service request is not open for quotes" });
+        return res.status(400).json({ message: "This job is no longer accepting quotes." });
       }
 
-      const quote = await storage.createQuote({ 
+      // Prevent quoting on own request (edge case if roles ever overlap)
+      if (request.homeownerId === userId) {
+        return res.status(403).json({ message: "You cannot quote on your own job." });
+      }
+
+      // Prevent duplicate quotes from same contractor
+      const existingQuotes = await storage.getQuotesByRequest(requestId);
+      const alreadyQuoted = existingQuotes.some(q => q.contractorId === userId);
+      if (alreadyQuoted) {
+        return res.status(400).json({ message: "You have already submitted a quote for this job." });
+      }
+
+      // Validate amount
+      if (!input.amount || input.amount < 100 || input.amount > 10000000) {
+        return res.status(400).json({ message: "Quote amount must be between $1 and $100,000." });
+      }
+
+      const quote = await storage.createQuote({
         ...input, 
         serviceRequestId: requestId,
         contractorId: userId,
@@ -320,8 +347,20 @@ export async function registerRoutes(
       return res.status(403).json({ message: "Only the homeowner can accept quotes" });
     }
 
+    if (request.status !== "open") {
+      return res.status(400).json({ message: "This job is no longer open for quote acceptance." });
+    }
+
     const acceptedQuote = await storage.updateQuote(quoteId, { status: "accepted" });
     await storage.updateServiceRequest(request.id, { status: "in_progress" });
+
+    // Reject all other pending quotes for this request
+    const allQuotes = await storage.getQuotesByRequest(request.id);
+    await Promise.all(
+      allQuotes
+        .filter(q => q.id !== quoteId && q.status === "pending")
+        .map(q => storage.updateQuote(q.id, { status: "rejected" }))
+    );
 
     res.json(acceptedQuote);
   });
@@ -520,10 +559,11 @@ export async function registerRoutes(
 
     const userInvoices = await storage.getInvoicesByUser(userId, profile.role as "homeowner" | "contractor");
 
-    const totalEarnings = userInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-    const totalCommission = userInvoices.reduce((sum, inv) => sum + inv.commissionAmount, 0);
+    const paidInvoices = userInvoices.filter(inv => inv.status === "paid");
+    const totalEarnings = paidInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+    const totalCommission = paidInvoices.reduce((sum, inv) => sum + inv.commissionAmount, 0);
     const netEarnings = totalEarnings - totalCommission;
-    const paidCount = userInvoices.filter(inv => inv.status === "paid").length;
+    const paidCount = paidInvoices.length;
     const pendingCount = userInvoices.filter(inv => inv.status === "pending").length;
 
     res.json({
