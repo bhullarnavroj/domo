@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/use-auth";
 import { useProfile } from "@/hooks/use-profiles";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
 import NotFound from "@/pages/not-found";
 
 // Pages
@@ -22,6 +23,12 @@ function ProtectedRoute({ component: Component, requireProfile = true }: { compo
   const { user, isLoading } = useAuth();
   const { data: profile, isLoading: profileLoading } = useProfile();
 
+  useEffect(() => {
+    if (!isLoading && !user) {
+      window.location.href = "/api/login";
+    }
+  }, [isLoading, user]);
+
   if (isLoading || (requireProfile && profileLoading)) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
@@ -31,12 +38,13 @@ function ProtectedRoute({ component: Component, requireProfile = true }: { compo
   }
 
   if (!user) {
-    window.location.href = "/api/login";
-    return null;
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
-  // If user exists but no profile, redirect to onboarding
-  // Unless we are already on onboarding page (handled by router)
   if (requireProfile && !profile) {
     return <Onboarding />;
   }
