@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Navigation } from "@/components/Navigation";
 import { ArrowRight, CheckCircle, Clock, Shield, Star, DollarSign, Zap, Home as HomeIcon, Wrench } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useProfile } from "@/hooks/use-profiles";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
 import { CATEGORIES } from "@shared/categories";
@@ -14,6 +15,8 @@ const fadeUp = (delay = 0) => ({
 
 export default function Home() {
   const { isAuthenticated } = useAuth();
+  const { data: profile } = useProfile();
+  const isContractor = profile?.role === "contractor";
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,9 +47,9 @@ export default function Home() {
             <div className="flex flex-col sm:flex-row gap-3">
               {isAuthenticated ? (
                 <>
-                  <Link href="/create-request">
+                  <Link href={isContractor ? "/dashboard" : "/create-request"}>
                     <Button size="lg" className="h-13 px-8 text-base rounded-xl" data-testid="button-post-request">
-                      Post a Job <ArrowRight className="ml-2 w-5 h-5" />
+                      {isContractor ? <>Find Work <ArrowRight className="ml-2 w-5 h-5" /></> : <>Post a Job <ArrowRight className="ml-2 w-5 h-5" /></>}
                     </Button>
                   </Link>
                   <Link href="/dashboard">
@@ -115,7 +118,7 @@ export default function Home() {
                   className="group p-7 rounded-2xl border-2 border-border hover:border-primary/50 bg-card hover:shadow-xl transition-all duration-200 cursor-pointer text-center"
                   onClick={() => {
                     if (isAuthenticated) {
-                      window.location.href = `/create-request?category=${cat.value}`;
+                      window.location.href = isContractor ? `/dashboard` : `/create-request?category=${cat.value}`;
                     } else {
                       localStorage.setItem("intended_role", "homeowner");
                       window.location.href = "/api/login";

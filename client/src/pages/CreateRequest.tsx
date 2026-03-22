@@ -11,14 +11,22 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useLocation } from "wouter";
 import { Loader2, UploadCloud } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { PROVINCE_LIST } from "@shared/tax";
 import { CATEGORIES } from "@shared/categories";
+import { useProfile } from "@/hooks/use-profiles";
 
 export default function CreateRequest() {
   const { mutate: createRequest, isPending } = useCreateServiceRequest();
   const [, setLocation] = useLocation();
+  const { data: profile } = useProfile();
+
+  useEffect(() => {
+    if (profile && profile.role !== "homeowner") {
+      setLocation("/dashboard");
+    }
+  }, [profile]);
   const { toast } = useToast();
   const [photos, setPhotos] = useState<string[]>([]);
 
