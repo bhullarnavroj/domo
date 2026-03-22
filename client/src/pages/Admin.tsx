@@ -63,6 +63,14 @@ function UsersTable() {
     },
   });
 
+  const resetProfileMutation = useMutation({
+    mutationFn: (userId: string) => apiRequest("DELETE", `/api/admin/users/${userId}/profile`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      toast({ title: "Profile reset", description: "User will go through onboarding on next login." });
+    },
+  });
+
   if (isLoading) return <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin" /></div>;
 
   return (
@@ -91,29 +99,45 @@ function UsersTable() {
                   {user.profile?.isSuspended ? "Suspended" : "Active"}
                 </td>
                 <td className="border border-border px-3 py-2">
-                  {user.profile && (
-                    user.profile.isSuspended ? (
+                  <div className="flex gap-2 flex-wrap">
+                    {user.profile && (
+                      user.profile.isSuspended ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          data-testid={`button-unsuspend-${user.id}`}
+                          onClick={() => unsuspendMutation.mutate(user.id)}
+                          disabled={unsuspendMutation.isPending}
+                        >
+                          Unsuspend
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          data-testid={`button-suspend-${user.id}`}
+                          onClick={() => suspendMutation.mutate(user.id)}
+                          disabled={suspendMutation.isPending}
+                        >
+                          Suspend
+                        </Button>
+                      )
+                    )}
+                    {user.profile && (
                       <Button
                         size="sm"
                         variant="outline"
-                        data-testid={`button-unsuspend-${user.id}`}
-                        onClick={() => unsuspendMutation.mutate(user.id)}
-                        disabled={unsuspendMutation.isPending}
+                        onClick={() => {
+                          if (confirm(`Reset profile for ${user.email}? They'll re-do onboarding on next login.`)) {
+                            resetProfileMutation.mutate(user.id);
+                          }
+                        }}
+                        disabled={resetProfileMutation.isPending}
                       >
-                        Unsuspend
+                        Reset Role
                       </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        data-testid={`button-suspend-${user.id}`}
-                        onClick={() => suspendMutation.mutate(user.id)}
-                        disabled={suspendMutation.isPending}
-                      >
-                        Suspend
-                      </Button>
-                    )
-                  )}
+                    )}
+                  </div>
                 </td>
               </tr>
             )) : (

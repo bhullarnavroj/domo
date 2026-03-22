@@ -71,6 +71,7 @@ export interface IStorage {
   unsuspendUser(userId: string): Promise<Profile>;
   approveContractor(userId: string): Promise<Profile>;
   rejectContractor(userId: string): Promise<Profile>;
+  deleteProfile(userId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -296,6 +297,10 @@ export class DatabaseStorage implements IStorage {
   async rejectContractor(userId: string): Promise<Profile> {
     const [updated] = await db.update(profiles).set({ isVerified: false }).where(eq(profiles.userId, userId)).returning();
     return updated;
+  }
+
+  async deleteProfile(userId: string): Promise<void> {
+    await db.delete(profiles).where(eq(profiles.userId, userId));
   }
 
   // Review Operations

@@ -721,6 +721,13 @@ export async function registerRoutes(
     res.json(profile);
   });
 
+  app.delete("/api/admin/users/:userId/profile", isAuthenticated, isAdmin, async (req, res) => {
+    const existing = await storage.getProfile(req.params.userId);
+    if (!existing) return res.status(404).json({ message: "Profile not found" });
+    await storage.deleteProfile(req.params.userId);
+    res.json({ message: "Profile deleted" });
+  });
+
   app.post("/api/admin/contractors/:userId/approve", isAuthenticated, isAdmin, async (req, res) => {
     const existing = await storage.getProfile(req.params.userId);
     if (!existing) return res.status(404).json({ message: "Profile not found" });
