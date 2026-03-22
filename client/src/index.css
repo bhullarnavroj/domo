@@ -37,7 +37,7 @@
   --input: 214.3 31.8% 91.4%;
   --ring: 221.2 83.2% 53.3%;
   
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 }
 
 .dark {
@@ -89,7 +89,12 @@
 }
 
 .hero-gradient {
-  background: linear-gradient(135deg, hsl(221 83% 53% / 0.1) 0%, hsl(262 83% 58% / 0.05) 100%);
+  background: linear-gradient(135deg, hsl(221 83% 53% / 0.08) 0%, hsl(262 83% 58% / 0.04) 100%);
+}
+
+/* Card hover lift */
+.card-hover {
+  @apply transition-all duration-200 hover:shadow-xl hover:-translate-y-0.5;
 }
 
 /* Custom Scrollbar */
