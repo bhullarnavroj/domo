@@ -6,11 +6,12 @@ export function useProfile() {
     queryKey: [api.profiles.me.path],
     queryFn: async () => {
       const res = await fetch(api.profiles.me.path, { credentials: "include" });
-      if (res.status === 404) return null;
+      if (res.status === 401 || res.status === 404) return null;
       if (!res.ok) throw new Error("Failed to fetch profile");
       return api.profiles.me.responses[200].parse(await res.json());
     },
     retry: false,
+    staleTime: Infinity,
   });
 }
 
