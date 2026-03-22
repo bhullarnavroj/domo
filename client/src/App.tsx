@@ -16,12 +16,13 @@ import CreateRequest from "@/pages/CreateRequest";
 import RequestDetails from "@/pages/RequestDetails";
 import Invoices from "@/pages/Invoices";
 import PaymentSuccess from "@/pages/PaymentSuccess";
+import Admin from "@/pages/Admin";
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+function ProtectedRoute({ component: Component, requireProfile = true }: { component: React.ComponentType, requireProfile?: boolean }) {
   const { user, isLoading } = useAuth();
   const { data: profile, isLoading: profileLoading } = useProfile();
 
-  if (isLoading || profileLoading) {
+  if (isLoading || (requireProfile && profileLoading)) {
     return (
       <div className="h-screen w-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -36,7 +37,7 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 
   // If user exists but no profile, redirect to onboarding
   // Unless we are already on onboarding page (handled by router)
-  if (!profile) {
+  if (requireProfile && !profile) {
     return <Onboarding />;
   }
 
@@ -64,6 +65,9 @@ function Router() {
       </Route>
       <Route path="/onboarding">
         <ProtectedRoute component={Onboarding} />
+      </Route>
+      <Route path="/admin">
+        <ProtectedRoute component={Admin} requireProfile={false} />
       </Route>
       
       {/* Fallbacks / 404 */}

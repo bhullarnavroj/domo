@@ -500,6 +500,71 @@ export async function registerRoutes(
     }
   });
 
+  // === ADMIN ===
+
+  function isAdmin(req: any, res: any, next: any) {
+    const userId = req.user?.claims?.sub;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const adminIds = (process.env.ADMIN_USER_IDS || "").split(",").map((id: string) => id.trim()).filter(Boolean);
+    if (!adminIds.includes(userId)) return res.status(403).json({ message: "Access denied" });
+    next();
+  }
+
+  // Admin check — returns isAdmin status for authenticated user (does not 403, used by frontend)
+  app.get("/api/auth/admin-check", isAuthenticated, (req: any, res) => {
+    const userId = req.user.claims.sub;
+    const adminIds = (process.env.ADMIN_USER_IDS || "").split(",").map((id: string) => id.trim()).filter(Boolean);
+    res.json({ isAdmin: adminIds.includes(userId) });
+  });
+
+  app.get("/api/admin/users", isAuthenticated, isAdmin, async (_req, res) => {
+    const allUsers = await storage.getAllUsers();
+    res.json(allUsers);
+  });
+
+  app.get("/api/admin/service-requests", isAuthenticated, isAdmin, async (_req, res) => {
+    const allRequests = await storage.getAllServiceRequests();
+    res.json(allRequests);
+  });
+
+  app.get("/api/admin/invoices", isAuthenticated, isAdmin, async (_req, res) => {
+    const allInvoices = await storage.getAllInvoices();
+    res.json(allInvoices);
+  });
+
+  app.get("/api/admin/contractor-applications", isAuthenticated, isAdmin, async (_req, res) => {
+    const pending = await storage.getPendingContractorApplications();
+    res.json(pending);
+  });
+
+  app.post("/api/admin/users/:userId/suspend", isAuthenticated, isAdmin, async (req, res) => {
+    const existing = await storage.getProfile(req.params.userId);
+    if (!existing) return res.status(404).json({ message: "Profile not found" });
+    const profile = await storage.suspendUser(req.params.userId);
+    res.json(profile);
+  });
+
+  app.post("/api/admin/users/:userId/unsuspend", isAuthenticated, isAdmin, async (req, res) => {
+    const existing = await storage.getProfile(req.params.userId);
+    if (!existing) return res.status(404).json({ message: "Profile not found" });
+    const profile = await storage.unsuspendUser(req.params.userId);
+    res.json(profile);
+  });
+
+  app.post("/api/admin/contractors/:userId/approve", isAuthenticated, isAdmin, async (req, res) => {
+    const existing = await storage.getProfile(req.params.userId);
+    if (!existing) return res.status(404).json({ message: "Profile not found" });
+    const profile = await storage.approveContractor(req.params.userId);
+    res.json(profile);
+  });
+
+  app.post("/api/admin/contractors/:userId/reject", isAuthenticated, isAdmin, async (req, res) => {
+    const existing = await storage.getProfile(req.params.userId);
+    if (!existing) return res.status(404).json({ message: "Profile not found" });
+    const profile = await storage.rejectContractor(req.params.userId);
+    res.json(profile);
+  });
+
   // === STRIPE WEBHOOK ===
 
   app.post("/api/stripe/webhook", async (req: any, res) => {

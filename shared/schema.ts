@@ -24,6 +24,7 @@ export const profiles = pgTable("profiles", {
   address: text("address"),
   skills: text("skills").array(), // For contractors
   isVerified: boolean("is_verified").default(false),
+  isSuspended: boolean("is_suspended").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -80,7 +81,7 @@ export const messages = pgTable("messages", {
 
 // === SCHEMAS ===
 
-export const insertProfileSchema = createInsertSchema(profiles).omit({ id: true, createdAt: true, userId: true });
+export const insertProfileSchema = createInsertSchema(profiles).omit({ id: true, createdAt: true, userId: true, isSuspended: true, isVerified: true });
 export const insertServiceRequestSchema = createInsertSchema(serviceRequests).omit({ id: true, createdAt: true, homeownerId: true, status: true });
 export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true, createdAt: true, contractorId: true, status: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true, createdAt: true, status: true });
@@ -117,4 +118,10 @@ export type ProfileResponse = Profile;
 export type ServiceRequestResponse = ServiceRequest & { homeowner?: any, quotes?: Quote[] }; // expanded
 export type QuoteResponse = Quote & { contractor?: any }; // expanded
 export type InvoiceResponse = Invoice;
+
+// Admin Response Types
+export type AdminUserResponse = User & { profile: Profile | null };
+export type AdminServiceRequestResponse = ServiceRequest & { homeownerName: string | null };
+export type AdminInvoiceResponse = Invoice;
+export type AdminContractorApplicationResponse = Profile & { user: User | null };
 

@@ -10,6 +10,11 @@ import {
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 
+export type AdminUser = User & { profile: Profile | null };
+export type AdminServiceRequest = ServiceRequest & { homeownerName: string | null };
+export type AdminInvoice = Invoice;
+export type AdminContractorApplication = Profile & { user: User | null };
+
 export interface IStorage {
   // User & Profile
   getUser(id: string): Promise<User | undefined>;
@@ -41,6 +46,16 @@ export interface IStorage {
   getInvoicesByUser(userId: string, role: "homeowner" | "contractor"): Promise<Invoice[]>;
   createInvoice(invoice: Omit<Invoice, "id" | "createdAt" | "status" | "commissionRate" | "description" | "baseAmount" | "gstAmount" | "pstAmount" | "taxRegion"> & { commissionRate?: number | null; description?: string | null; baseAmount?: number | null; gstAmount?: number | null; pstAmount?: number | null; taxRegion?: string | null }): Promise<Invoice>;
   updateInvoiceStatus(id: number, status: "pending" | "paid" | "failed", stripePaymentIntentId?: string): Promise<Invoice>;
+
+  // Admin
+  getAllUsers(): Promise<AdminUser[]>;
+  getAllServiceRequests(): Promise<AdminServiceRequest[]>;
+  getAllInvoices(): Promise<AdminInvoice[]>;
+  getPendingContractorApplications(): Promise<AdminContractorApplication[]>;
+  suspendUser(userId: string): Promise<Profile>;
+  unsuspendUser(userId: string): Promise<Profile>;
+  approveContractor(userId: string): Promise<Profile>;
+  rejectContractor(userId: string): Promise<Profile>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -183,6 +198,61 @@ export class DatabaseStorage implements IStorage {
       .set(updates)
       .where(eq(invoices.id, id))
       .returning();
+    return updated;
+  }
+
+  // Admin Operations
+  async getAllUsers(): Promise<AdminUser[]> {
+    const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
+    const result: AdminUser[] = await Promise.all(allUsers.map(async (user) => {
+      const [profile] = await db.select().from(profiles).where(eq(profiles.userId, user.id));
+      return { ...user, profile: profile || null };
+    }));
+    return result;
+  }
+
+  async getAllServiceRequests(): Promise<AdminServiceRequest[]> {
+    const allRequests = await db.select().from(serviceRequests).orderBy(desc(serviceRequests.createdAt));
+    const result: AdminServiceRequest[] = await Promise.all(allRequests.map(async (request) => {
+      const [user] = await db.select().from(users).where(eq(users.id, request.homeownerId));
+      const homeownerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || null : null;
+      return { ...request, homeownerName };
+    }));
+    return result;
+  }
+
+  async getAllInvoices(): Promise<AdminInvoice[]> {
+    return await db.select().from(invoices).orderBy(desc(invoices.createdAt));
+  }
+
+  async getPendingContractorApplications(): Promise<AdminContractorApplication[]> {
+    const pendingProfiles = await db.select().from(profiles)
+      .where(and(eq(profiles.role, "contractor"), eq(profiles.isVerified, false)))
+      .orderBy(desc(profiles.createdAt));
+    const result: AdminContractorApplication[] = await Promise.all(pendingProfiles.map(async (profile) => {
+      const [user] = await db.select().from(users).where(eq(users.id, profile.userId));
+      return { ...profile, user: user || null };
+    }));
+    return result;
+  }
+
+  async suspendUser(userId: string): Promise<Profile> {
+    const [updated] = await db.update(profiles).set({ isSuspended: true }).where(eq(profiles.userId, userId)).returning();
+    return updated;
+  }
+
+  async unsuspendUser(userId: string): Promise<Profile> {
+    const [updated] = await db.update(profiles).set({ isSuspended: false }).where(eq(profiles.userId, userId)).returning();
+    return updated;
+  }
+
+  async approveContractor(userId: string): Promise<Profile> {
+    const [updated] = await db.update(profiles).set({ isVerified: true }).where(eq(profiles.userId, userId)).returning();
+    return updated;
+  }
+
+  async rejectContractor(userId: string): Promise<Profile> {
+    const [updated] = await db.update(profiles).set({ isVerified: false }).where(eq(profiles.userId, userId)).returning();
     return updated;
   }
 }
