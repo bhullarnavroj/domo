@@ -118,7 +118,7 @@ export default function Onboarding() {
                   <FormItem>
                     <FormLabel>Address / Location</FormLabel>
                     <FormControl>
-                      <Input placeholder="City, State" {...field} data-testid="input-address" />
+                      <Input placeholder="City, BC" {...field} data-testid="input-address" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -134,7 +134,7 @@ export default function Onboarding() {
                       <FormItem>
                         <FormLabel>Business / Practice Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g., Smith & Associates Law" {...field} data-testid="input-business-name" />
+                          <Input placeholder="e.g., ABC Plumbing Ltd." {...field} data-testid="input-business-name" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

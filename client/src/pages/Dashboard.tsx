@@ -4,7 +4,7 @@ import { Navigation } from "@/components/Navigation";
 import { ServiceRequestCard } from "@/components/ServiceRequestCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, Search } from "lucide-react";
+import { Loader2, Plus, Search, Clock } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
 import { CATEGORIES } from "@shared/categories";
@@ -41,6 +41,18 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-muted/30">
       <Navigation />
+
+      {isContractor && !profile?.isVerified && (
+        <div className="bg-amber-50 border-b border-amber-200">
+          <div className="container mx-auto px-4 py-3 flex items-center gap-3">
+            <Clock className="w-5 h-5 text-amber-600 shrink-0" />
+            <div>
+              <span className="font-semibold text-amber-800">Account pending approval — </span>
+              <span className="text-amber-700 text-sm">Our team is reviewing your application. You'll receive an email once approved and can start submitting quotes.</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="container mx-auto px-4 py-8">
         {/* Header */}

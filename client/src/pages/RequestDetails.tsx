@@ -9,7 +9,7 @@ import { Navigation } from "@/components/Navigation";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, MapPin, Calendar, DollarSign, CheckCircle, Pencil, MessageCircle, Send, CreditCard, Star } from "lucide-react";
+import { Loader2, MapPin, Calendar, DollarSign, CheckCircle, Pencil, MessageCircle, Send, CreditCard, Star, Clock } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
@@ -424,56 +424,70 @@ export default function RequestDetails() {
              </Dialog>
 
              {isProvider && request.status === "open" && (
-               <Card className="border-border/60 bg-primary/5">
-                 <CardHeader>
-                   <CardTitle className="text-lg">Interested in this project?</CardTitle>
-                 </CardHeader>
-                 <CardContent>
-                   <p className="text-sm text-muted-foreground mb-4">
-                     Review the details and submit your quote to the property owner.
-                   </p>
-                   <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
-                     <DialogTrigger asChild>
-                       <Button className="w-full" data-testid="button-submit-quote">Submit Quote</Button>
-                     </DialogTrigger>
-                     <DialogContent>
-                       <DialogHeader>
-                         <DialogTitle>Submit a Quote</DialogTitle>
-                       </DialogHeader>
-                       <form onSubmit={handleSubmitQuote} className="space-y-4 mt-4">
-                         <div>
-                           <Label>Amount ($)</Label>
-                           <div className="relative">
-                             <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                             <Input 
-                               type="number" 
-                               className="pl-9" 
-                               placeholder="0.00" 
-                               value={quoteAmount}
-                               onChange={(e) => setQuoteAmount(e.target.value)}
+               profile?.isVerified ? (
+                 <Card className="border-border/60 bg-primary/5">
+                   <CardHeader>
+                     <CardTitle className="text-lg">Interested in this project?</CardTitle>
+                   </CardHeader>
+                   <CardContent>
+                     <p className="text-sm text-muted-foreground mb-4">
+                       Review the details and submit your quote to the property owner.
+                     </p>
+                     <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
+                       <DialogTrigger asChild>
+                         <Button className="w-full" data-testid="button-submit-quote">Submit Quote</Button>
+                       </DialogTrigger>
+                       <DialogContent>
+                         <DialogHeader>
+                           <DialogTitle>Submit a Quote</DialogTitle>
+                         </DialogHeader>
+                         <form onSubmit={handleSubmitQuote} className="space-y-4 mt-4">
+                           <div>
+                             <Label>Amount ($)</Label>
+                             <div className="relative">
+                               <DollarSign className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                               <Input
+                                 type="number"
+                                 className="pl-9"
+                                 placeholder="0.00"
+                                 value={quoteAmount}
+                                 onChange={(e) => setQuoteAmount(e.target.value)}
+                                 required
+                                 data-testid="input-quote-amount"
+                               />
+                             </div>
+                           </div>
+                           <div>
+                             <Label>Description / Proposal</Label>
+                             <Textarea
+                               placeholder="Detail your service, approach, and timeline..."
+                               value={quoteDesc}
+                               onChange={(e) => setQuoteDesc(e.target.value)}
                                required
-                               data-testid="input-quote-amount"
+                               data-testid="input-quote-description"
                              />
                            </div>
-                         </div>
-                         <div>
-                           <Label>Description / Proposal</Label>
-                           <Textarea 
-                             placeholder="Detail your service, approach, and timeline..." 
-                             value={quoteDesc}
-                             onChange={(e) => setQuoteDesc(e.target.value)}
-                             required
-                             data-testid="input-quote-description"
-                           />
-                         </div>
-                         <Button type="submit" className="w-full" disabled={isCreatingQuote} data-testid="button-confirm-quote">
-                           {isCreatingQuote ? <Loader2 className="animate-spin" /> : "Submit Quote"}
-                         </Button>
-                       </form>
-                     </DialogContent>
-                   </Dialog>
-                 </CardContent>
-               </Card>
+                           <Button type="submit" className="w-full" disabled={isCreatingQuote} data-testid="button-confirm-quote">
+                             {isCreatingQuote ? <Loader2 className="animate-spin" /> : "Submit Quote"}
+                           </Button>
+                         </form>
+                       </DialogContent>
+                     </Dialog>
+                   </CardContent>
+                 </Card>
+               ) : (
+                 <Card className="border-amber-200 bg-amber-50">
+                   <CardContent className="p-5 flex flex-col items-center text-center gap-3">
+                     <Clock className="w-8 h-8 text-amber-500 mt-1" />
+                     <div>
+                       <div className="font-semibold text-amber-800 mb-1">Account Pending Approval</div>
+                       <p className="text-sm text-amber-700">
+                         Our team is reviewing your application. Once approved, you'll be able to submit quotes on jobs.
+                       </p>
+                     </div>
+                   </CardContent>
+                 </Card>
+               )
              )}
 
              {canMessage && (
