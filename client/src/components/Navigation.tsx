@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useProfile } from "@/hooks/use-profiles";
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, LogOut, PlusCircle, Menu, FileText, Search, Home } from "lucide-react";
+import { LayoutDashboard, LogOut, PlusCircle, Menu, FileText, Home, Briefcase, DollarSign } from "lucide-react";
 import { useState } from "react";
 import {
   DropdownMenu,
@@ -35,12 +35,14 @@ export function Navigation() {
   const isHomeowner = profile?.role === "homeowner";
   const displayName = user?.firstName ? `${user.firstName} ${user.lastName ?? ""}`.trim() : user?.email ?? "Account";
 
-  const navLinks = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, show: isAuthenticated },
-    { href: "/create-request", label: "Post Job", icon: PlusCircle, show: isHomeowner },
-    { href: "/find-leads", label: "Find Leads", icon: Search, show: isProvider },
-    { href: "/invoices", label: "Invoices", icon: FileText, show: isAuthenticated },
-  ];
+  const navLinks = isHomeowner ? [
+    { href: "/dashboard", label: "My Jobs", icon: LayoutDashboard },
+    { href: "/create-request", label: "Post a Job", icon: PlusCircle },
+    { href: "/invoices", label: "Invoices", icon: FileText },
+  ] : isProvider ? [
+    { href: "/dashboard", label: "Find Work", icon: Briefcase },
+    { href: "/invoices", label: "Earnings", icon: DollarSign },
+  ] : [];
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/90 backdrop-blur-md">
@@ -57,23 +59,21 @@ export function Navigation() {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-1">
-          {navLinks.map((link) =>
-            link.show ? (
-              <Link key={link.href} href={link.href}>
-                <div
-                  data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, "-")}`}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                    location === link.href
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <link.icon className="w-4 h-4" />
-                  {link.label}
-                </div>
-              </Link>
-            ) : null
-          )}
+          {navLinks.map((link) => (
+            <Link key={link.href} href={link.href}>
+              <div
+                data-testid={`link-nav-${link.label.toLowerCase().replace(/\s/g, "-")}`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                  location === link.href
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <link.icon className="w-4 h-4" />
+                {link.label}
+              </div>
+            </Link>
+          ))}
         </div>
 
         {/* Desktop right */}
@@ -150,23 +150,21 @@ export function Navigation() {
                 )}
 
                 <div className="flex flex-col gap-1">
-                  {navLinks.map((link) =>
-                    link.show ? (
-                      <Link key={link.href} href={link.href}>
-                        <div
-                          className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer ${
-                            location === link.href
-                              ? "bg-primary/10 text-primary"
-                              : "text-muted-foreground hover:bg-muted"
-                          }`}
-                          onClick={() => setIsOpen(false)}
-                        >
-                          <link.icon className="w-5 h-5" />
-                          <span className="font-medium">{link.label}</span>
-                        </div>
-                      </Link>
-                    ) : null
-                  )}
+                  {navLinks.map((link) => (
+                    <Link key={link.href} href={link.href}>
+                      <div
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors cursor-pointer ${
+                          location === link.href
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <link.icon className="w-5 h-5" />
+                        <span className="font-medium">{link.label}</span>
+                      </div>
+                    </Link>
+                  ))}
                 </div>
 
                 <div className="mt-auto">
