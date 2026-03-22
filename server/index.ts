@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
@@ -21,6 +22,27 @@ app.use(
 );
 
 app.use(express.urlencoded({ extended: false }));
+
+const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Too many requests",
+  statusCode: 429,
+});
+
+const apiRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Too many requests",
+  statusCode: 429,
+});
+
+app.use("/api/auth", authRateLimiter);
+app.use("/api", apiRateLimiter);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
