@@ -28,7 +28,7 @@ export class StripeService {
       payment_method_types: ['card'],
       line_items: [{
         price_data: {
-          currency: 'usd',
+          currency: 'cad',
           product_data: {
             name: `Payment for DOMO Invoice #${invoiceId}`,
           },
